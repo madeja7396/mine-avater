@@ -18,6 +18,9 @@ lint:
 		ci/check_project_skills.py \
 		pipeline/interfaces.py \
 		pipeline/contracts.py \
+		pipeline/preprocess.py \
+		pipeline/generator.py \
+		pipeline/postprocess.py \
 		pipeline/scaffold.py \
 		pipeline/run_scaffold.py
 

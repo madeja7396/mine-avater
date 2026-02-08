@@ -41,6 +41,8 @@ python3 pipeline/run_scaffold.py \
   --workspace /tmp/avatar-work
 ```
 
+`ffmpeg` が使える環境では `output.mp4` を実動画として生成し、使えない環境ではプレースホルダ出力にフォールバックします。
+
 ```bash
 # タスクロック取得
 python3 harness/task_lock.py acquire mouth_roi_stabilize agent-01 --ttl-minutes 120

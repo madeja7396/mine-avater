@@ -8,6 +8,7 @@
 
 契約は `pipeline/contracts.py` を正本とする。
 雛形実装は `pipeline/scaffold.py`、実行エントリは `pipeline/run_scaffold.py`。
+補助実装として `pipeline/preprocess.py`, `pipeline/generator.py`, `pipeline/postprocess.py` を持つ。
 
 ## 2. 中間成果物
 
