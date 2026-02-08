@@ -53,6 +53,8 @@ python3 pipeline/run_scaffold.py \
 `ffmpeg` が使える環境では `output.mp4` を実動画として生成し、使えない環境ではプレースホルダ出力にフォールバックします。
 `--generator-backend` は `heuristic` / `vit-mock` / `vit-hf` / `vit-auto` を選択できます。`vit-hf` / `vit-auto` は `torch` と `transformers` が利用可能な場合に実ViTを使い、不可能な場合は設定に応じて `vit-mock` にフォールバックします。
 
+CI監視コマンドは `GITHUB_TOKEN` を環境変数または `.env.lock` から読み込みます。
+
 ```bash
 # タスクロック取得
 python3 harness/task_lock.py acquire mouth_roi_stabilize agent-01 --ttl-minutes 120

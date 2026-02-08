@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import contextlib
 import io
+import tempfile
 import unittest
+import zipfile
+from pathlib import Path
 
 from ci.monitor_ci import (
     MonitorOptions,
     collect_failed_jobs,
+    decode_log_payload,
     evaluate_exit,
+    load_token_from_env_file,
     parse_repo_from_remote,
     summarize_run,
 )
@@ -82,6 +87,20 @@ class MonitorCITest(unittest.TestCase):
         self.assertEqual(len(failed), 2)
         self.assertEqual(failed[0]["name"], "b")
         self.assertEqual(failed[1]["name"], "d")
+
+    def test_decode_log_payload_zip(self) -> None:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("job/1.txt", "ERROR: sample")
+        text = decode_log_payload(buf.getvalue())
+        self.assertIn("ERROR: sample", text)
+
+    def test_load_token_from_env_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            p = Path(tmp_dir) / ".env.lock"
+            p.write_text("GITHUB_TOKEN=abc123\nOTHER=value\n", encoding="utf-8")
+            token = load_token_from_env_file(str(p), "GITHUB_TOKEN")
+            self.assertEqual(token, "abc123")
 
 
 if __name__ == "__main__":

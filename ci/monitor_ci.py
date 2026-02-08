@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import subprocess
@@ -8,6 +9,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -34,6 +36,22 @@ class MonitorOptions:
     triage_script: str
     triage_logs_dir: str
     triage_max_jobs: int
+
+
+def load_token_from_env_file(path: str, key: str) -> str | None:
+    p = Path(path)
+    if not p.is_file():
+        return None
+    for raw in p.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        if k.strip() != key:
+            continue
+        value = v.strip().strip('"').strip("'")
+        return value or None
+    return None
 
 
 def detect_repo_from_origin() -> str | None:
@@ -124,12 +142,29 @@ def github_get_text(url: str, token: str | None) -> str:
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             raw = response.read()
-            return raw.decode("utf-8", errors="replace")
+            return decode_log_payload(raw)
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"GitHub API error status={exc.code} body={body}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"GitHub API connection error: {exc}") from exc
+
+
+def decode_log_payload(raw: bytes) -> str:
+    if raw.startswith(b"PK\x03\x04"):
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                texts: list[str] = []
+                for name in archive.namelist():
+                    if name.endswith("/") or not name.lower().endswith((".txt", ".log")):
+                        continue
+                    payload = archive.read(name).decode("utf-8", errors="replace")
+                    texts.append(f"### {name}\n{payload}")
+                if texts:
+                    return "\n\n".join(texts)
+        except Exception:
+            pass
+    return raw.decode("utf-8", errors="replace")
 
 
 def fetch_job_log(opts: MonitorOptions, job_id: int) -> str:
@@ -375,6 +410,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--triage-logs-dir", default="logs/ci_monitor")
     parser.add_argument("--triage-max-jobs", type=int, default=10)
     parser.add_argument("--token-env", default="GITHUB_TOKEN")
+    parser.add_argument("--env-file", default=".env.lock")
     return parser
 
 
@@ -386,6 +422,8 @@ def main() -> int:
         return 1
 
     token = os.environ.get(args.token_env)
+    if not token:
+        token = load_token_from_env_file(args.env_file, args.token_env)
     opts = MonitorOptions(
         repo=repo,
         branch=args.branch,
