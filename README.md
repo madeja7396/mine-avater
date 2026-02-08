@@ -40,6 +40,7 @@ python3 pipeline/run_scaffold.py \
   --input-audio /path/to/input.wav \
   --reference-image /path/to/face.png \
   --workspace /tmp/avatar-work \
+  --generator-backend heuristic \
   --frame-count 12 \
   --fps 25 \
   --window-ms 25 \
@@ -47,6 +48,7 @@ python3 pipeline/run_scaffold.py \
 ```
 
 `ffmpeg` が使える環境では `output.mp4` を実動画として生成し、使えない環境ではプレースホルダ出力にフォールバックします。
+`--generator-backend` は `heuristic` / `vit-mock` / `vit-hf` / `vit-auto` を選択できます。
 
 ```bash
 # タスクロック取得

@@ -25,6 +25,7 @@ lint:
 		pipeline/config.py \
 		pipeline/engine.py \
 		pipeline/preprocess.py \
+		pipeline/vit.py \
 		pipeline/generator.py \
 		pipeline/postprocess.py \
 		pipeline/scaffold.py \

@@ -12,7 +12,7 @@ from pipeline.contracts import (
     Preprocessor,
 )
 from pipeline.engine import PipelineRunner
-from pipeline.generator import generate_frames
+from pipeline.generator import generate_frames_with_backend
 from pipeline.interfaces import PipelinePaths
 from pipeline.postprocess import finalize_output_video
 from pipeline.preprocess import build_mouth_landmarks, extract_audio_features
@@ -55,22 +55,34 @@ class ScaffoldPreprocessor(Preprocessor):
 class ScaffoldGenerator(Generator):
     def __init__(self, config: GeneratorConfig) -> None:
         self.config = config
+        self._backend_used = "not-run"
 
     def describe(self) -> dict:
-        return {"frame_count": self.config.frame_count}
+        return {
+            "frame_count": self.config.frame_count,
+            "backend_requested": self.config.backend,
+            "backend_used": self._backend_used,
+            "vit_patch_size": self.config.vit_patch_size,
+            "vit_image_size": self.config.vit_image_size,
+        }
 
     def run(
         self,
         payload: PipelineInput,
         artifacts: IntermediateArtifacts,
     ) -> IntermediateArtifacts:
-        generate_frames(
+        result = generate_frames_with_backend(
             reference_image=payload.reference_image,
             audio_features=artifacts.audio_features,
             mouth_landmarks=artifacts.mouth_landmarks,
             output_dir=artifacts.frames_dir,
             frame_count=self.config.frame_count,
+            backend=self.config.backend,
+            vit_patch_size=self.config.vit_patch_size,
+            vit_image_size=self.config.vit_image_size,
+            vit_fallback_mock=self.config.vit_fallback_mock,
         )
+        self._backend_used = str(result.get("backend_used", "unknown"))
         return artifacts
 
 

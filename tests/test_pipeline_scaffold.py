@@ -84,6 +84,8 @@ class PipelineScaffoldTest(unittest.TestCase):
             self.assertIn("intermediate_artifacts", payload)
             self.assertIn("pipeline_output", payload)
             self.assertIn("stages", payload)
+            self.assertEqual(payload["stages"]["generator"]["backend_requested"], "heuristic")
+            self.assertEqual(payload["stages"]["generator"]["backend_used"], "heuristic")
 
     def test_scaffold_pipeline_respects_frame_count_and_fps(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -110,6 +112,8 @@ class PipelineScaffoldTest(unittest.TestCase):
                 "20",
                 "--hop-ms",
                 "8",
+                "--generator-backend",
+                "vit-mock",
             )
 
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
@@ -121,9 +125,37 @@ class PipelineScaffoldTest(unittest.TestCase):
             self.assertEqual(manifest["stages"]["postprocessor"]["fps"], 15)
             self.assertEqual(manifest["stages"]["preprocessor"]["window_ms"], 20.0)
             self.assertEqual(manifest["stages"]["preprocessor"]["hop_ms"], 8.0)
+            self.assertEqual(manifest["stages"]["generator"]["backend_requested"], "vit-mock")
+            self.assertIn("vit-mock", manifest["stages"]["generator"]["backend_used"])
 
             meta = json.loads((workspace / "output.mp4.meta.json").read_text(encoding="utf-8"))
             self.assertEqual(meta["fps"], 15)
+
+    def test_scaffold_pipeline_rejects_invalid_vit_grid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_audio = root / "input.wav"
+            reference_image = root / "face.png"
+            workspace = root / "workspace"
+            self.write_sine_wav(input_audio)
+            self.write_png(reference_image)
+
+            result = self.run_cmd(
+                "--input-audio",
+                str(input_audio),
+                "--reference-image",
+                str(reference_image),
+                "--workspace",
+                str(workspace),
+                "--generator-backend",
+                "vit-hf",
+                "--vit-image-size",
+                "230",
+                "--vit-patch-size",
+                "16",
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("ERROR: invalid_vit_grid", result.stdout)
 
 
 if __name__ == "__main__":

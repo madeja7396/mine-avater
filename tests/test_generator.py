@@ -7,7 +7,7 @@ import unittest
 import wave
 from pathlib import Path
 
-from pipeline.generator import generate_frames
+from pipeline.generator import generate_frames, generate_frames_with_backend
 from pipeline.preprocess import build_mouth_landmarks, extract_audio_features
 
 TINY_PNG = (
@@ -71,7 +71,34 @@ class GeneratorTest(unittest.TestCase):
             self.assertGreaterEqual(height, 64)
             self.assertTrue(files[0].stat().st_size > 100)
 
+    def test_generate_frames_vit_mock_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            reference_image = root / "face.png"
+            input_audio = root / "input.wav"
+            audio_features = root / "audio_features.npy"
+            mouth_landmarks = root / "mouth_landmarks.json"
+            frames_dir = root / "frames"
+
+            reference_image.write_bytes(TINY_PNG)
+            self.write_sine_wav(input_audio)
+            extract_audio_features(input_audio, audio_features)
+            build_mouth_landmarks(reference_image, mouth_landmarks, frame_count=4)
+
+            result = generate_frames_with_backend(
+                reference_image=reference_image,
+                audio_features=audio_features,
+                mouth_landmarks=mouth_landmarks,
+                output_dir=frames_dir,
+                frame_count=4,
+                backend="vit-mock",
+            )
+
+            self.assertEqual(result["frame_count"], 4)
+            self.assertEqual(result["backend_requested"], "vit-mock")
+            self.assertEqual(result["backend_used"], "vit-mock")
+            self.assertEqual(len(sorted(frames_dir.glob("*.png"))), 4)
+
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -21,6 +21,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hop-ms", type=float, default=10.0)
     parser.add_argument("--frame-count", type=int, default=12)
     parser.add_argument("--fps", type=int, default=25)
+    parser.add_argument(
+        "--generator-backend",
+        choices=["heuristic", "vit-mock", "vit-hf", "vit-auto"],
+        default="heuristic",
+    )
+    parser.add_argument("--vit-patch-size", type=int, default=16)
+    parser.add_argument("--vit-image-size", type=int, default=224)
+    parser.add_argument("--no-vit-fallback-mock", action="store_true")
     return parser
 
 
@@ -49,6 +57,21 @@ def main() -> int:
             f"window_ms={args.window_ms} hop_ms={args.hop_ms}"
         )
         return 1
+    if args.vit_patch_size <= 0 or args.vit_image_size <= 0:
+        print(
+            "ERROR: invalid_vit_size "
+            f"vit_patch_size={args.vit_patch_size} vit_image_size={args.vit_image_size}"
+        )
+        return 1
+    if (
+        args.generator_backend in ("vit-hf", "vit-auto")
+        and args.vit_image_size % args.vit_patch_size != 0
+    ):
+        print(
+            "ERROR: invalid_vit_grid "
+            f"vit_image_size={args.vit_image_size} vit_patch_size={args.vit_patch_size}"
+        )
+        return 1
 
     config = ScaffoldConfig(
         preprocess=PreprocessConfig(
@@ -56,7 +79,13 @@ def main() -> int:
             hop_ms=args.hop_ms,
             landmark_frames=args.frame_count,
         ),
-        generator=GeneratorConfig(frame_count=args.frame_count),
+        generator=GeneratorConfig(
+            frame_count=args.frame_count,
+            backend=args.generator_backend,
+            vit_patch_size=args.vit_patch_size,
+            vit_image_size=args.vit_image_size,
+            vit_fallback_mock=not args.no_vit_fallback_mock,
+        ),
         postprocess=PostprocessConfig(fps=args.fps),
     )
 

@@ -7,6 +7,7 @@ import zlib
 from pathlib import Path
 
 from pipeline.preprocess import get_image_size
+from pipeline.vit import VitConditioning, resolve_vit_conditioning
 
 
 def read_npy_f32_matrix(path: Path) -> list[list[float]]:
@@ -82,12 +83,13 @@ def _render_frame(
     mouth_cy: float,
     mouth_open: float,
     energy: float,
+    vit: VitConditioning,
 ) -> bytes:
     pixels = bytearray(width * height * 3)
     skin_r, skin_g, skin_b = 220, 186, 160
 
     # Slightly animate background brightness using audio energy.
-    bg_boost = int(25.0 * _clamp(energy, 0.0, 1.0))
+    bg_boost = int(25.0 * _clamp(energy, 0.0, 1.0) + 30.0 * vit.tone_shift)
     for y in range(height):
         for x in range(width):
             idx = (y * width + x) * 3
@@ -95,8 +97,8 @@ def _render_frame(
             pixels[idx + 1] = int(_clamp(55 + (y * 20 // max(1, height - 1)), 0, 255))
             pixels[idx + 2] = 75
 
-    face_cx = int(width * 0.5)
-    face_cy = int(height * 0.5)
+    face_cx = int(width * (0.5 + vit.face_shift_x))
+    face_cy = int(height * (0.5 + vit.face_shift_y))
     face_rx = int(width * 0.32)
     face_ry = int(height * 0.40)
 
@@ -106,9 +108,9 @@ def _render_frame(
             dx = (x - face_cx) / max(1.0, float(face_rx))
             if dx * dx + dy * dy <= 1.0:
                 idx = (y * width + x) * 3
-                pixels[idx] = skin_r
-                pixels[idx + 1] = skin_g
-                pixels[idx + 2] = skin_b
+                pixels[idx] = int(_clamp(skin_r + vit.tone_shift * 25.0, 0, 255))
+                pixels[idx + 1] = int(_clamp(skin_g + vit.tone_shift * 15.0, 0, 255))
+                pixels[idx + 2] = int(_clamp(skin_b + vit.tone_shift * 8.0, 0, 255))
 
     mx = int(_clamp(mouth_cx, 0.2, 0.8) * width)
     my = int(_clamp(mouth_cy, 0.2, 0.9) * height)
@@ -135,6 +137,27 @@ def generate_frames(
     output_dir: Path,
     frame_count: int = 12,
 ) -> int:
+    result = generate_frames_with_backend(
+        reference_image=reference_image,
+        audio_features=audio_features,
+        mouth_landmarks=mouth_landmarks,
+        output_dir=output_dir,
+        frame_count=frame_count,
+    )
+    return int(result["frame_count"])
+
+
+def generate_frames_with_backend(
+    reference_image: Path,
+    audio_features: Path,
+    mouth_landmarks: Path,
+    output_dir: Path,
+    frame_count: int = 12,
+    backend: str = "heuristic",
+    vit_patch_size: int = 16,
+    vit_image_size: int = 224,
+    vit_fallback_mock: bool = True,
+) -> dict[str, object]:
     width, height = get_image_size(reference_image)
     width = max(64, min(width, 256))
     height = max(64, min(height, 256))
@@ -146,6 +169,16 @@ def generate_frames(
         features = [[0.0, 0.0, 0.0]]
     if not landmarks:
         landmarks = [{"frame_index": 0, "points": [[0.4, 0.6], [0.46, 0.62], [0.54, 0.62], [0.6, 0.6]]}]
+
+    vit_result = resolve_vit_conditioning(
+        reference_image=reference_image,
+        width=width,
+        height=height,
+        backend=backend,
+        patch_size=vit_patch_size,
+        image_size=vit_image_size,
+        fallback_mock=vit_fallback_mock,
+    )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for i in range(frame_count):
@@ -160,9 +193,25 @@ def generate_frames(
 
         mouth_cx = float(points[1][0] + points[2][0]) * 0.5
         mouth_cy = float(points[1][1] + points[2][1]) * 0.5
-        mouth_open = abs(float(points[1][1]) - float(points[0][1])) + energy * 0.15
+        mouth_open = (
+            abs(float(points[1][1]) - float(points[0][1]))
+            + energy * 0.15 * vit_result.conditioning.mouth_gain
+        )
 
-        frame = _render_frame(width, height, mouth_cx, mouth_cy, mouth_open, energy)
+        frame = _render_frame(
+            width,
+            height,
+            mouth_cx,
+            mouth_cy,
+            mouth_open,
+            energy,
+            vit=vit_result.conditioning,
+        )
         write_png_rgb(output_dir / f"{i:06d}.png", width, height, frame)
 
-    return frame_count
+    return {
+        "frame_count": frame_count,
+        "backend_requested": backend,
+        "backend_used": vit_result.backend_used,
+        "vit_details": vit_result.details,
+    }
