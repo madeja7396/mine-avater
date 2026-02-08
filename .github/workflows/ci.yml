@@ -29,6 +29,8 @@ jobs:
         run: make check
       - name: Run fast eval
         run: make test_fast
+      - name: Run scaffold smoke test
+        run: make test_smoke
       - name: Run unit tests
         run: make test_unit
 

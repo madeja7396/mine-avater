@@ -5,6 +5,7 @@
 - `lint`: 構文・最低限の静的検証
 - `check`: 基盤構造と評価資産の整合性検証
 - `test_fast`: 高頻度回帰検知
+- `test_smoke`: 実行配線スモーク（CLI経由で成果物生成を検証）
 - `test_unit`: ユニット検証
 - `test_full`: 収束フェーズ検証
 - `pipeline/run_scaffold.py`: 実装前の配線スモーク（ユニットで検証）

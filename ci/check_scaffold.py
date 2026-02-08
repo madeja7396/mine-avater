@@ -30,6 +30,7 @@ REQUIRED_FILES = [
     Path("ci/eval_runner.py"),
     Path("ci/check_eval_assets.py"),
     Path("ci/check_project_skills.py"),
+    Path("ci/smoke_scaffold.py"),
     Path("pipeline/contracts.py"),
     Path("pipeline/config.py"),
     Path("pipeline/engine.py"),
