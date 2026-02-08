@@ -27,6 +27,7 @@ make test_fast
 make test_smoke
 make test_vit_smoke
 make monitor_ci
+make monitor_ci_triage
 make test_full
 make test_unit
 ```

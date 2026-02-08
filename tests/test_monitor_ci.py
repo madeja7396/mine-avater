@@ -6,6 +6,7 @@ import unittest
 
 from ci.monitor_ci import (
     MonitorOptions,
+    collect_failed_jobs,
     evaluate_exit,
     parse_repo_from_remote,
     summarize_run,
@@ -59,12 +60,28 @@ class MonitorCITest(unittest.TestCase):
             until_complete=False,
             require_success=True,
             include_jobs=False,
+            triage_on_failure=False,
+            triage_script="skills/avatar-ci-guardian/scripts/triage_ci_log.py",
+            triage_logs_dir="logs/ci_monitor",
+            triage_max_jobs=10,
         )
         summary_ok = {"status": "completed", "conclusion": "success"}
         summary_fail = {"status": "completed", "conclusion": "failure"}
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(evaluate_exit(opts, summary_ok), 0)
             self.assertEqual(evaluate_exit(opts, summary_fail), 1)
+
+    def test_collect_failed_jobs(self) -> None:
+        jobs = [
+            {"name": "a", "status": "completed", "conclusion": "success"},
+            {"name": "b", "status": "completed", "conclusion": "failure"},
+            {"name": "c", "status": "in_progress", "conclusion": None},
+            {"name": "d", "status": "completed", "conclusion": "cancelled"},
+        ]
+        failed = collect_failed_jobs(jobs)
+        self.assertEqual(len(failed), 2)
+        self.assertEqual(failed[0]["name"], "b")
+        self.assertEqual(failed[1]["name"], "d")
 
 
 if __name__ == "__main__":

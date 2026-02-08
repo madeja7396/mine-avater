@@ -10,6 +10,8 @@
 - `test_unit`: ユニット検証
 - `monitor_ci`: GitHub Actionsの最新実行状態を確認
 - `monitor_ci_watch`: CI完了まで監視し、失敗時にエラー終了
+- `monitor_ci_triage`: 失敗時にジョブログを取得して自動triage実行
+- `monitor_ci_watch_triage`: 監視 + 失敗時自動triage
 - `test_full`: 収束フェーズ検証
 - `pipeline/run_scaffold.py`: 実装前の配線スモーク（ユニットで検証）
 

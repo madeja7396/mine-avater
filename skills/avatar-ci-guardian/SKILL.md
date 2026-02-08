@@ -46,6 +46,12 @@ Watch until completion and fail on red:
 python3 ci/monitor_ci.py --branch main --workflow CI --watch --until-complete --require-success
 ```
 
+Auto-triage failed jobs:
+
+```bash
+python3 ci/monitor_ci.py --branch main --workflow CI --include-jobs --triage-on-failure
+```
+
 ## Failure Priorities
 
 1. Syntax/lint failures

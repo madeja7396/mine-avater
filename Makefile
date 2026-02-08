@@ -1,4 +1,4 @@
-.PHONY: lint check check_scaffold check_eval_assets check_project_skills test_fast test_full test_unit test_smoke test_vit_smoke monitor_ci monitor_ci_watch test_all
+.PHONY: lint check check_scaffold check_eval_assets check_project_skills test_fast test_full test_unit test_smoke test_vit_smoke monitor_ci monitor_ci_watch monitor_ci_triage monitor_ci_watch_triage test_all
 
 test_fast:
 	python3 ci/eval_runner.py --mode fast
@@ -20,6 +20,12 @@ monitor_ci:
 
 monitor_ci_watch:
 	python3 ci/monitor_ci.py --branch main --workflow CI --watch --until-complete --interval 60 --max-iterations 60 --require-success
+
+monitor_ci_triage:
+	python3 ci/monitor_ci.py --branch main --workflow CI --include-jobs --triage-on-failure
+
+monitor_ci_watch_triage:
+	python3 ci/monitor_ci.py --branch main --workflow CI --watch --until-complete --interval 60 --max-iterations 60 --require-success --triage-on-failure
 
 lint:
 	python3 -m py_compile \

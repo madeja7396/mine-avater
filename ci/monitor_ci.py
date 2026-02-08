@@ -9,6 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 
@@ -29,6 +30,10 @@ class MonitorOptions:
     until_complete: bool
     require_success: bool
     include_jobs: bool
+    triage_on_failure: bool
+    triage_script: str
+    triage_logs_dir: str
+    triage_max_jobs: int
 
 
 def detect_repo_from_origin() -> str | None:
@@ -107,6 +112,31 @@ def fetch_run_jobs(opts: MonitorOptions, run_id: int) -> list[dict[str, Any]]:
     return []
 
 
+def github_get_text(url: str, token: str | None) -> str:
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "mine-avater-ci-monitor",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            raw = response.read()
+            return raw.decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"GitHub API error status={exc.code} body={body}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"GitHub API connection error: {exc}") from exc
+
+
+def fetch_job_log(opts: MonitorOptions, job_id: int) -> str:
+    url = f"{API_BASE}/repos/{opts.repo}/actions/jobs/{job_id}/logs"
+    return github_get_text(url, token=opts.token)
+
+
 def summarize_run(run: dict[str, Any]) -> dict[str, str]:
     return {
         "id": str(run.get("id", "")),
@@ -150,6 +180,88 @@ def print_jobs(jobs: list[dict[str, Any]]) -> None:
         )
 
 
+def collect_failed_jobs(jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    failed: list[dict[str, Any]] = []
+    for job in jobs:
+        status = str(job.get("status", ""))
+        conclusion = str(job.get("conclusion", ""))
+        if status != "completed":
+            continue
+        if conclusion and conclusion != "success":
+            failed.append(job)
+    return failed
+
+
+def _safe_slug(name: str) -> str:
+    out = []
+    for ch in name:
+        if ch.isalnum() or ch in ("-", "_"):
+            out.append(ch)
+        else:
+            out.append("_")
+    slug = "".join(out).strip("_")
+    return slug or "job"
+
+
+def run_triage_script(script: str, log_path: Path) -> tuple[int, str, str]:
+    result = subprocess.run(
+        [os.environ.get("PYTHON", "python3"), script, "--log", str(log_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode, result.stdout, result.stderr
+
+
+def auto_triage_failed_jobs(
+    opts: MonitorOptions,
+    summary: dict[str, str],
+    jobs: list[dict[str, Any]],
+) -> None:
+    run_id = summary.get("id", "unknown")
+    failed = collect_failed_jobs(jobs)
+    if not failed:
+        print("WARN: ci_auto_triage_no_failed_jobs")
+        return
+
+    root = Path(opts.triage_logs_dir) / f"run_{run_id}"
+    root.mkdir(parents=True, exist_ok=True)
+    print(
+        "METRIC: ci_auto_triage_start "
+        f"run_id={run_id} failed_jobs={len(failed)} logs_dir={root}"
+    )
+
+    max_jobs = max(1, opts.triage_max_jobs)
+    for job in failed[:max_jobs]:
+        job_id = int(job.get("id", 0))
+        job_name = str(job.get("name", "job"))
+        slug = _safe_slug(job_name)
+        log_path = root / f"{job_id}_{slug}.log"
+        try:
+            log_text = fetch_job_log(opts, job_id)
+            log_path.write_text(log_text, encoding="utf-8")
+            print(
+                "METRIC: ci_auto_triage_job_log "
+                f"job_id={job_id} name={job_name} path={log_path}"
+            )
+        except Exception as exc:
+            print(
+                "WARN: ci_auto_triage_log_fetch_failed "
+                f"job_id={job_id} name={job_name} reason={exc}"
+            )
+            continue
+
+        rc, out, err = run_triage_script(opts.triage_script, log_path)
+        print(
+            "METRIC: ci_auto_triage_job "
+            f"job_id={job_id} name={job_name} triage_rc={rc}"
+        )
+        if out.strip():
+            print(out.strip())
+        if err.strip():
+            print(f"WARN: ci_auto_triage_stderr {err.strip()}")
+
+
 def evaluate_exit(opts: MonitorOptions, summary: dict[str, str]) -> int:
     if not opts.require_success:
         return 0
@@ -178,13 +290,22 @@ def run_once(opts: MonitorOptions) -> int:
     latest = runs[0]
     summary = summarize_run(latest)
     print_run_summary(summary)
-    if opts.include_jobs:
+    jobs: list[dict[str, Any]] = []
+    need_jobs = opts.include_jobs or (
+        opts.triage_on_failure
+        and summary.get("status") == "completed"
+        and summary.get("conclusion") != "success"
+    )
+    if need_jobs:
         try:
             jobs = fetch_run_jobs(opts, int(summary["id"]))
         except RuntimeError as exc:
             print(f"WARN: ci_jobs_fetch_failed {exc}")
             jobs = []
+    if opts.include_jobs:
         print_jobs(jobs)
+    if opts.triage_on_failure and summary.get("status") == "completed" and summary.get("conclusion") != "success":
+        auto_triage_failed_jobs(opts, summary, jobs)
     return evaluate_exit(opts, summary)
 
 
@@ -206,17 +327,26 @@ def run_watch(opts: MonitorOptions) -> int:
         latest = runs[0]
         summary = summarize_run(latest)
         print_run_summary(summary)
-        if opts.include_jobs:
+        jobs: list[dict[str, Any]] = []
+        need_jobs = opts.include_jobs or (
+            opts.triage_on_failure
+            and summary.get("status") == "completed"
+            and summary.get("conclusion") != "success"
+        )
+        if need_jobs:
             try:
                 jobs = fetch_run_jobs(opts, int(summary["id"]))
             except RuntimeError as exc:
                 print(f"WARN: ci_jobs_fetch_failed {exc}")
                 jobs = []
+        if opts.include_jobs:
             print_jobs(jobs)
 
         status = summary["status"]
         done = (not opts.until_complete) or (status == "completed")
         if done:
+            if opts.triage_on_failure and summary.get("conclusion") != "success":
+                auto_triage_failed_jobs(opts, summary, jobs)
             return evaluate_exit(opts, summary)
         if opts.max_iterations > 0 and iterations >= opts.max_iterations:
             print(f"ERROR: ci_watch_timeout iterations={iterations}")
@@ -237,6 +367,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--until-complete", action="store_true")
     parser.add_argument("--require-success", action="store_true")
     parser.add_argument("--include-jobs", action="store_true")
+    parser.add_argument("--triage-on-failure", action="store_true")
+    parser.add_argument(
+        "--triage-script",
+        default="skills/avatar-ci-guardian/scripts/triage_ci_log.py",
+    )
+    parser.add_argument("--triage-logs-dir", default="logs/ci_monitor")
+    parser.add_argument("--triage-max-jobs", type=int, default=10)
     parser.add_argument("--token-env", default="GITHUB_TOKEN")
     return parser
 
@@ -262,6 +399,10 @@ def main() -> int:
         until_complete=args.until_complete,
         require_success=args.require_success,
         include_jobs=args.include_jobs,
+        triage_on_failure=args.triage_on_failure,
+        triage_script=args.triage_script,
+        triage_logs_dir=args.triage_logs_dir,
+        triage_max_jobs=max(1, args.triage_max_jobs),
     )
 
     if opts.watch:
