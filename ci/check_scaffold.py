@@ -35,6 +35,7 @@ REQUIRED_FILES = [
     Path("pipeline/config.py"),
     Path("pipeline/engine.py"),
     Path("pipeline/preprocess.py"),
+    Path("pipeline/image_io.py"),
     Path("pipeline/vit.py"),
     Path("pipeline/generator.py"),
     Path("pipeline/postprocess.py"),

@@ -157,6 +157,9 @@ def generate_frames_with_backend(
     vit_patch_size: int = 16,
     vit_image_size: int = 224,
     vit_fallback_mock: bool = True,
+    vit_model_name: str = "google/vit-base-patch16-224",
+    vit_use_pretrained: bool = False,
+    vit_device: str = "cpu",
 ) -> dict[str, object]:
     width, height = get_image_size(reference_image)
     width = max(64, min(width, 256))
@@ -178,6 +181,9 @@ def generate_frames_with_backend(
         patch_size=vit_patch_size,
         image_size=vit_image_size,
         fallback_mock=vit_fallback_mock,
+        model_name=vit_model_name,
+        use_pretrained=vit_use_pretrained,
+        device=vit_device,
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -214,4 +220,7 @@ def generate_frames_with_backend(
         "backend_requested": backend,
         "backend_used": vit_result.backend_used,
         "vit_details": vit_result.details,
+        "vit_model_name": vit_model_name,
+        "vit_use_pretrained": vit_use_pretrained,
+        "vit_device": vit_device,
     }

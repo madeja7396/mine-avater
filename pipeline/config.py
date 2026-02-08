@@ -17,6 +17,9 @@ class GeneratorConfig:
     vit_patch_size: int = 16
     vit_image_size: int = 224
     vit_fallback_mock: bool = True
+    vit_model_name: str = "google/vit-base-patch16-224"
+    vit_use_pretrained: bool = False
+    vit_device: str = "cpu"
 
 
 @dataclass(frozen=True)

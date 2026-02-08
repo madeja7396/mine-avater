@@ -99,6 +99,37 @@ class GeneratorTest(unittest.TestCase):
             self.assertEqual(result["backend_used"], "vit-mock")
             self.assertEqual(len(sorted(frames_dir.glob("*.png"))), 4)
 
+    def test_generate_frames_vit_auto_falls_back_when_hf_unavailable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            reference_image = root / "face.png"
+            input_audio = root / "input.wav"
+            audio_features = root / "audio_features.npy"
+            mouth_landmarks = root / "mouth_landmarks.json"
+            frames_dir = root / "frames"
+
+            reference_image.write_bytes(TINY_PNG)
+            self.write_sine_wav(input_audio)
+            extract_audio_features(input_audio, audio_features)
+            build_mouth_landmarks(reference_image, mouth_landmarks, frame_count=3)
+
+            result = generate_frames_with_backend(
+                reference_image=reference_image,
+                audio_features=audio_features,
+                mouth_landmarks=mouth_landmarks,
+                output_dir=frames_dir,
+                frame_count=3,
+                backend="vit-auto",
+                vit_use_pretrained=False,
+            )
+
+            self.assertEqual(result["frame_count"], 3)
+            self.assertEqual(result["backend_requested"], "vit-auto")
+            self.assertTrue(
+                str(result["backend_used"]) in ("vit-hf", "vit-mock-fallback"),
+                msg=str(result["backend_used"]),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

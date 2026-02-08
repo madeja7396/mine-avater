@@ -34,6 +34,9 @@ class VitTest(unittest.TestCase):
                 patch_size=16,
                 image_size=224,
                 fallback_mock=True,
+                model_name="google/vit-base-patch16-224",
+                use_pretrained=False,
+                device="cpu",
             )
             self.assertEqual(result.backend_used, "heuristic")
 
@@ -50,9 +53,11 @@ class VitTest(unittest.TestCase):
                     patch_size=16,
                     image_size=224,
                     fallback_mock=True,
+                    model_name="google/vit-base-patch16-224",
+                    use_pretrained=False,
+                    device="cpu",
                 )
 
 
 if __name__ == "__main__":
     unittest.main()
-

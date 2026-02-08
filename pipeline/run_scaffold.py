@@ -29,6 +29,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--vit-patch-size", type=int, default=16)
     parser.add_argument("--vit-image-size", type=int, default=224)
     parser.add_argument("--no-vit-fallback-mock", action="store_true")
+    parser.add_argument("--vit-model-name", default="google/vit-base-patch16-224")
+    parser.add_argument("--vit-use-pretrained", action="store_true")
+    parser.add_argument("--vit-device", default="cpu")
     return parser
 
 
@@ -66,6 +69,7 @@ def main() -> int:
     if (
         args.generator_backend in ("vit-hf", "vit-auto")
         and args.vit_image_size % args.vit_patch_size != 0
+        and not args.vit_use_pretrained
     ):
         print(
             "ERROR: invalid_vit_grid "
@@ -85,6 +89,9 @@ def main() -> int:
             vit_patch_size=args.vit_patch_size,
             vit_image_size=args.vit_image_size,
             vit_fallback_mock=not args.no_vit_fallback_mock,
+            vit_model_name=args.vit_model_name,
+            vit_use_pretrained=args.vit_use_pretrained,
+            vit_device=args.vit_device,
         ),
         postprocess=PostprocessConfig(fps=args.fps),
     )

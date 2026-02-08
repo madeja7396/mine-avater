@@ -64,6 +64,9 @@ class ScaffoldGenerator(Generator):
             "backend_used": self._backend_used,
             "vit_patch_size": self.config.vit_patch_size,
             "vit_image_size": self.config.vit_image_size,
+            "vit_model_name": self.config.vit_model_name,
+            "vit_use_pretrained": self.config.vit_use_pretrained,
+            "vit_device": self.config.vit_device,
         }
 
     def run(
@@ -81,6 +84,9 @@ class ScaffoldGenerator(Generator):
             vit_patch_size=self.config.vit_patch_size,
             vit_image_size=self.config.vit_image_size,
             vit_fallback_mock=self.config.vit_fallback_mock,
+            vit_model_name=self.config.vit_model_name,
+            vit_use_pretrained=self.config.vit_use_pretrained,
+            vit_device=self.config.vit_device,
         )
         self._backend_used = str(result.get("backend_used", "unknown"))
         return artifacts

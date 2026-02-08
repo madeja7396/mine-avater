@@ -11,6 +11,7 @@
 補助実装として `pipeline/preprocess.py`, `pipeline/generator.py`, `pipeline/postprocess.py` を持つ。
 実行制御は `pipeline/engine.py`、ステージ設定は `pipeline/config.py` で管理する。
 Generatorは `heuristic` と `ViT系バックエンド（vit-mock / vit-hf / vit-auto）` の切替を持つ。
+画像デコードは `pipeline/image_io.py` を介して行い、`ffmpeg` 優先・PNGデコーダ/バイトフォールバックを備える。
 
 ## 2. 中間成果物
 
