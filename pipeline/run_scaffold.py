@@ -36,6 +36,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--vit-device", default="cpu")
     parser.add_argument("--vit-enable-3d-conditioning", action="store_true")
     parser.add_argument("--vit-3d-conditioning-weight", type=float, default=0.35)
+    parser.add_argument("--vit-enable-reference-augmentation", action="store_true")
+    parser.add_argument("--vit-augmentation-copies", type=int, default=1)
+    parser.add_argument("--vit-augmentation-strength", type=float, default=0.15)
+    parser.add_argument("--vit-overfit-guard-strength", type=float, default=0.0)
     parser.add_argument("--temporal-spatial-loss-weight", type=float, default=0.0)
     parser.add_argument("--temporal-smooth-factor", type=float, default=0.35)
     return parser
@@ -81,6 +85,21 @@ def main() -> int:
             f"value={args.vit_3d_conditioning_weight}"
         )
         return 1
+    if args.vit_augmentation_copies <= 0:
+        print(f"ERROR: invalid_vit_augmentation_copies value={args.vit_augmentation_copies}")
+        return 1
+    if args.vit_augmentation_strength < 0.0 or args.vit_augmentation_strength > 1.0:
+        print(
+            "ERROR: invalid_vit_augmentation_strength "
+            f"value={args.vit_augmentation_strength}"
+        )
+        return 1
+    if args.vit_overfit_guard_strength < 0.0 or args.vit_overfit_guard_strength > 1.0:
+        print(
+            "ERROR: invalid_vit_overfit_guard_strength "
+            f"value={args.vit_overfit_guard_strength}"
+        )
+        return 1
     if args.temporal_spatial_loss_weight < 0.0 or args.temporal_spatial_loss_weight > 1.0:
         print(
             "ERROR: invalid_temporal_spatial_loss_weight "
@@ -123,6 +142,10 @@ def main() -> int:
             vit_device=args.vit_device,
             vit_enable_3d_conditioning=args.vit_enable_3d_conditioning,
             vit_3d_conditioning_weight=args.vit_3d_conditioning_weight,
+            vit_enable_reference_augmentation=args.vit_enable_reference_augmentation,
+            vit_augmentation_copies=args.vit_augmentation_copies,
+            vit_augmentation_strength=args.vit_augmentation_strength,
+            vit_overfit_guard_strength=args.vit_overfit_guard_strength,
             temporal_spatial_loss_weight=args.temporal_spatial_loss_weight,
             temporal_smooth_factor=args.temporal_smooth_factor,
         ),

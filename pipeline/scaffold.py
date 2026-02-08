@@ -86,6 +86,10 @@ class ScaffoldGenerator(Generator):
             "vit_device": self.config.vit_device,
             "vit_enable_3d_conditioning": self.config.vit_enable_3d_conditioning,
             "vit_3d_conditioning_weight": self.config.vit_3d_conditioning_weight,
+            "vit_enable_reference_augmentation": self.config.vit_enable_reference_augmentation,
+            "vit_augmentation_copies": self.config.vit_augmentation_copies,
+            "vit_augmentation_strength": self.config.vit_augmentation_strength,
+            "vit_overfit_guard_strength": self.config.vit_overfit_guard_strength,
             "temporal_spatial_loss_weight": self.config.temporal_spatial_loss_weight,
             "temporal_smooth_factor": self.config.temporal_smooth_factor,
         }
@@ -115,6 +119,10 @@ class ScaffoldGenerator(Generator):
             vit_device=self.config.vit_device,
             vit_enable_3d_conditioning=self.config.vit_enable_3d_conditioning,
             vit_3d_conditioning_weight=self.config.vit_3d_conditioning_weight,
+            vit_enable_reference_augmentation=self.config.vit_enable_reference_augmentation,
+            vit_augmentation_copies=self.config.vit_augmentation_copies,
+            vit_augmentation_strength=self.config.vit_augmentation_strength,
+            vit_overfit_guard_strength=self.config.vit_overfit_guard_strength,
             temporal_spatial_loss_weight=self.config.temporal_spatial_loss_weight,
             temporal_smooth_factor=self.config.temporal_smooth_factor,
         )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,6 +55,57 @@ def _merge_conditionings(
         face_shift_y=sum(v.face_shift_y for v in rows) / n,
         mouth_gain=sum(v.mouth_gain for v in rows) / n,
         tone_shift=sum(v.tone_shift for v in rows) / n,
+    )
+
+
+def _stable_noise_unit(key: str) -> float:
+    digest = hashlib.sha256(key.encode("utf-8")).digest()
+    raw = int.from_bytes(digest[:8], "big")
+    unit = raw / float((1 << 64) - 1)
+    return (unit * 2.0) - 1.0
+
+
+def _apply_reference_augmentation(
+    conditioning: VitConditioning,
+    seed_key: str,
+    augmentation_copies: int,
+    augmentation_strength: float,
+    reference_count: int,
+) -> tuple[VitConditioning, int]:
+    copies = max(1, augmentation_copies)
+    reference_rows = max(1, reference_count)
+    total_rows = max(1, reference_rows * copies)
+    strength = _clamp(augmentation_strength, 0.0, 1.0)
+    if total_rows <= 1 or strength <= 0.0:
+        return conditioning, 1
+
+    rows: list[VitConditioning] = [conditioning]
+    for idx in range(1, total_rows):
+        n_x = _stable_noise_unit(f"{seed_key}:x:{idx}")
+        n_y = _stable_noise_unit(f"{seed_key}:y:{idx}")
+        n_m = _stable_noise_unit(f"{seed_key}:m:{idx}")
+        n_t = _stable_noise_unit(f"{seed_key}:t:{idx}")
+        rows.append(
+            VitConditioning(
+                face_shift_x=_clamp(conditioning.face_shift_x + n_x * 0.030 * strength, -0.2, 0.2),
+                face_shift_y=_clamp(conditioning.face_shift_y + n_y * 0.030 * strength, -0.2, 0.2),
+                mouth_gain=_clamp(conditioning.mouth_gain * (1.0 + n_m * 0.18 * strength), 0.5, 1.9),
+                tone_shift=_clamp(conditioning.tone_shift + n_t * 0.080 * strength, -0.6, 0.6),
+            )
+        )
+    return _merge_conditionings(rows), len(rows)
+
+
+def _apply_overfit_guard(conditioning: VitConditioning, guard_strength: float) -> VitConditioning:
+    g = _clamp(guard_strength, 0.0, 1.0)
+    if g <= 0.0:
+        return conditioning
+    keep = 1.0 - g
+    return VitConditioning(
+        face_shift_x=conditioning.face_shift_x * keep,
+        face_shift_y=conditioning.face_shift_y * keep,
+        mouth_gain=1.0 + ((conditioning.mouth_gain - 1.0) * keep),
+        tone_shift=conditioning.tone_shift * keep,
     )
 
 
@@ -233,6 +285,10 @@ def resolve_vit_conditioning(
     reference_images: list[Path] | None = None,
     spatial_params: dict[str, float] | None = None,
     spatial_weight: float = 0.0,
+    enable_reference_augmentation: bool = False,
+    augmentation_copies: int = 1,
+    augmentation_strength: float = 0.15,
+    overfit_guard_strength: float = 0.0,
 ) -> VitResult:
     def with_spatial(base: VitResult) -> VitResult:
         if not spatial_params:
@@ -267,37 +323,74 @@ def resolve_vit_conditioning(
             },
         )
 
+    def with_phase4(base: VitResult) -> VitResult:
+        details = dict(base.details)
+        cond = base.conditioning
+
+        ref_count_raw = details.get("reference_count", 1.0)
+        ref_count = int(ref_count_raw) if isinstance(ref_count_raw, (int, float)) else 1
+        if enable_reference_augmentation:
+            augmented, virtual_rows = _apply_reference_augmentation(
+                conditioning=cond,
+                seed_key=str(reference_image),
+                augmentation_copies=augmentation_copies,
+                augmentation_strength=augmentation_strength,
+                reference_count=ref_count,
+            )
+            cond = augmented
+            details["phase4_aug_applied"] = "true"
+            details["phase4_aug_virtual_rows"] = float(virtual_rows)
+            details["phase4_aug_copies"] = float(max(1, augmentation_copies))
+            details["phase4_aug_strength"] = _clamp(augmentation_strength, 0.0, 1.0)
+        else:
+            details["phase4_aug_applied"] = "false"
+
+        cond = _apply_overfit_guard(cond, overfit_guard_strength)
+        details["phase4_overfit_guard_strength"] = _clamp(overfit_guard_strength, 0.0, 1.0)
+
+        return VitResult(
+            conditioning=cond,
+            backend_used=base.backend_used,
+            details=details,
+        )
+
     if backend == "heuristic":
-        return with_spatial(
-            VitResult(
-                conditioning=VitConditioning(0.0, 0.0, 1.0, 0.0),
-                backend_used="heuristic",
-                details={"message": "heuristic mode"},
+        return with_phase4(
+            with_spatial(
+                VitResult(
+                    conditioning=VitConditioning(0.0, 0.0, 1.0, 0.0),
+                    backend_used="heuristic",
+                    details={"message": "heuristic mode"},
+                )
             )
         )
 
     if backend == "vit-mock":
-        return with_spatial(
-            compute_mock_vit_conditioning(
-                reference_image=reference_image,
-                width=width,
-                height=height,
-                patch_size=patch_size,
-                reference_images=reference_images,
+        return with_phase4(
+            with_spatial(
+                compute_mock_vit_conditioning(
+                    reference_image=reference_image,
+                    width=width,
+                    height=height,
+                    patch_size=patch_size,
+                    reference_images=reference_images,
+                )
             )
         )
 
     if backend in ("vit-hf", "vit-auto"):
         try:
-            return with_spatial(
-                compute_hf_vit_conditioning(
-                    reference_image,
-                    image_size=image_size,
-                    patch_size=patch_size,
-                    model_name=model_name,
-                    use_pretrained=use_pretrained,
-                    device=device,
-                    reference_images=reference_images,
+            return with_phase4(
+                with_spatial(
+                    compute_hf_vit_conditioning(
+                        reference_image,
+                        image_size=image_size,
+                        patch_size=patch_size,
+                        model_name=model_name,
+                        use_pretrained=use_pretrained,
+                        device=device,
+                        reference_images=reference_images,
+                    )
                 )
             )
         except Exception as exc:
@@ -310,11 +403,13 @@ def resolve_vit_conditioning(
                 patch_size=patch_size,
                 reference_images=reference_images,
             )
-            return with_spatial(
-                VitResult(
-                    conditioning=mock.conditioning,
-                    backend_used="vit-mock-fallback",
-                    details={"reason": str(exc), **mock.details},
+            return with_phase4(
+                with_spatial(
+                    VitResult(
+                        conditioning=mock.conditioning,
+                        backend_used="vit-mock-fallback",
+                        details={"reason": str(exc), **mock.details},
+                    )
                 )
             )
 

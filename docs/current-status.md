@@ -2,7 +2,7 @@
 
 最終更新日時: 2026-02-08  
 ブランチ: `main`  
-HEAD: `af8b85e`
+HEAD: `3ccfbbb`
 
 ## 1. 実装済み
 
@@ -27,6 +27,10 @@ HEAD: `af8b85e`
   - `--temporal-spatial-loss-weight`, `--temporal-smooth-factor` 追加
   - 口ランドマークから temporal-spatial loss proxy を算出し、口開閉をフレーム間で平滑化
   - `pipeline_run.json` の generator stage に loss 関連設定を記録
+- Phase 4: augmentation と過学習抑制（初手）
+  - `--vit-enable-reference-augmentation`, `--vit-augmentation-copies`, `--vit-augmentation-strength` 追加
+  - 参照特徴の仮想augmentation（決定的ジッタ）を conditioning 融合へ適用
+  - `--vit-overfit-guard-strength` で中立条件への収縮を導入し、過学習的偏りを抑制
 - CI監視/障害トリアージ
   - `ci/monitor_ci.py`
   - 失敗ジョブのログ取得 + `skills/avatar-ci-guardian/scripts/triage_ci_log.py` 実行
@@ -52,7 +56,7 @@ HEAD: `af8b85e`
   - `psnr_mean=31.1600`
   - `ssim_mean=0.9466`
   - `throughput_fps=21.50`
-- `test_unit` 成功（47 tests）
+- `test_unit` 成功（52 tests）
 - `test_smoke` 成功
 - `test_vit_smoke` 成功
 - `test_full` 成功
@@ -68,8 +72,8 @@ HEAD: `af8b85e`
 実行コマンド: `make monitor_ci` / `make monitor_ci_triage`  
 結果: 最新runは成功
 
-- 最新CI run: `21795588821`（`conclusion=success`）
-- SHA: `af8b85e1b668e6ad2aa350ce06b3067f3d0d12bd`
+- 最新CI run: `21795718100`（`conclusion=success`）
+- SHA: `3ccfbbbdee3a504c57a235b2e3f2d9fe5f459a16`
 - 以前の失敗（`Run vit-mock smoke test`）は ffmpeg 非存在時の `FileNotFoundError` を修正済み
 - 補足: failed run のジョブログ自動取得は引き続きトークン権限（admin rights）に依存
 
@@ -77,12 +81,13 @@ HEAD: `af8b85e`
 
 1. `make monitor_ci` でCIグリーンを確認
 2. `make test_all` でローカル回帰確認
-3. 本実装を `specs/roadmap.md` の Phase 4（augmentationと過学習抑制）から継続
+3. 本実装を `specs/roadmap.md` の Phase 4（augmentationと過学習抑制）の精緻化から継続
 4. 必要に応じて `repo` 管理者権限相当トークンで `make monitor_ci_triage` を有効化
 
 ## 5. 直近コミット履歴
 
 - `af8b85e` fix: harden vit smoke fallback and add temporal-spatial proxy
+- `3ccfbbb` docs: finalize current status after CI green
 - `3e67bd1` docs: snapshot current implementation and handoff status
 - `ee399f8` feat: add multi-view vit conditioning and secure env lock flow
 - `524fcee` feat: support CI failure auto-triage with job log retrieval

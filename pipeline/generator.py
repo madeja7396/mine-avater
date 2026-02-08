@@ -230,6 +230,10 @@ def generate_frames_with_backend(
     vit_device: str = "cpu",
     vit_enable_3d_conditioning: bool = False,
     vit_3d_conditioning_weight: float = 0.35,
+    vit_enable_reference_augmentation: bool = False,
+    vit_augmentation_copies: int = 1,
+    vit_augmentation_strength: float = 0.15,
+    vit_overfit_guard_strength: float = 0.0,
     temporal_spatial_loss_weight: float = 0.0,
     temporal_smooth_factor: float = 0.35,
 ) -> dict[str, object]:
@@ -261,6 +265,10 @@ def generate_frames_with_backend(
         reference_images=vit_reference_images,
         spatial_params=spatial_params,
         spatial_weight=vit_3d_conditioning_weight,
+        enable_reference_augmentation=vit_enable_reference_augmentation,
+        augmentation_copies=vit_augmentation_copies,
+        augmentation_strength=vit_augmentation_strength,
+        overfit_guard_strength=vit_overfit_guard_strength,
     )
 
     temporal_weight = _clamp(temporal_spatial_loss_weight, 0.0, 1.0)
@@ -318,6 +326,10 @@ def generate_frames_with_backend(
         "vit_device": vit_device,
         "vit_enable_3d_conditioning": vit_enable_3d_conditioning,
         "vit_3d_conditioning_weight": vit_3d_conditioning_weight,
+        "vit_enable_reference_augmentation": vit_enable_reference_augmentation,
+        "vit_augmentation_copies": vit_augmentation_copies,
+        "vit_augmentation_strength": vit_augmentation_strength,
+        "vit_overfit_guard_strength": vit_overfit_guard_strength,
         "temporal_spatial_loss_weight": temporal_weight,
         "temporal_smooth_factor": smooth_factor,
         "temporal_spatial_loss_mean": (

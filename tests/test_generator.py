@@ -240,6 +240,45 @@ class GeneratorTest(unittest.TestCase):
             self.assertEqual(result["temporal_smooth_factor"], 0.5)
             self.assertGreater(float(result["temporal_spatial_loss_mean"]), 0.0)
 
+    def test_generate_frames_reports_phase4_augmentation_controls(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            reference_image = root / "face.png"
+            ref_side = root / "side.png"
+            input_audio = root / "input.wav"
+            audio_features = root / "audio_features.npy"
+            mouth_landmarks = root / "mouth_landmarks.json"
+            frames_dir = root / "frames"
+
+            reference_image.write_bytes(TINY_PNG)
+            ref_side.write_bytes(TINY_PNG)
+            self.write_sine_wav(input_audio)
+            extract_audio_features(input_audio, audio_features)
+            build_mouth_landmarks(reference_image, mouth_landmarks, frame_count=4)
+
+            result = generate_frames_with_backend(
+                reference_image=reference_image,
+                audio_features=audio_features,
+                mouth_landmarks=mouth_landmarks,
+                output_dir=frames_dir,
+                frame_count=4,
+                backend="vit-mock",
+                vit_reference_images=[ref_side],
+                vit_enable_reference_augmentation=True,
+                vit_augmentation_copies=3,
+                vit_augmentation_strength=0.4,
+                vit_overfit_guard_strength=0.3,
+            )
+
+            details = result["vit_details"]
+            self.assertTrue(isinstance(details, dict))
+            self.assertEqual(details.get("phase4_aug_applied"), "true")
+            self.assertEqual(details.get("phase4_aug_copies"), 3.0)
+            self.assertEqual(details.get("phase4_overfit_guard_strength"), 0.3)
+            self.assertEqual(result["vit_enable_reference_augmentation"], True)
+            self.assertEqual(result["vit_augmentation_copies"], 3)
+            self.assertEqual(result["vit_augmentation_strength"], 0.4)
+
 
 if __name__ == "__main__":
     unittest.main()

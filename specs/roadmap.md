@@ -21,7 +21,7 @@
 ## Phase 4: クローン元データ強化
 
 - [~] multi-referenceデータ運用（入力経路の実装済み）
-- [ ] augmentationと過学習抑制
+- [~] augmentationと過学習抑制（参照特徴の仮想augmentation + overfit guardを実装済み）
 
 ## Phase 5: 評価と最適化
 

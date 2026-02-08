@@ -100,6 +100,49 @@ class VitTest(unittest.TestCase):
             self.assertGreater(result.conditioning.mouth_gain, 1.0)
             self.assertGreater(result.conditioning.tone_shift, 0.0)
 
+    def test_resolve_heuristic_with_phase4_controls(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            image = Path(tmp_dir) / "face.png"
+            image.write_bytes(TINY_PNG)
+            base = resolve_vit_conditioning(
+                reference_image=image,
+                width=128,
+                height=128,
+                backend="heuristic",
+                patch_size=16,
+                image_size=224,
+                fallback_mock=True,
+                model_name="google/vit-base-patch16-224",
+                use_pretrained=False,
+                device="cpu",
+                spatial_params={"yaw": 0.8, "pitch": -0.5, "depth": 0.6},
+                spatial_weight=1.0,
+            )
+            tuned = resolve_vit_conditioning(
+                reference_image=image,
+                width=128,
+                height=128,
+                backend="heuristic",
+                patch_size=16,
+                image_size=224,
+                fallback_mock=True,
+                model_name="google/vit-base-patch16-224",
+                use_pretrained=False,
+                device="cpu",
+                spatial_params={"yaw": 0.8, "pitch": -0.5, "depth": 0.6},
+                spatial_weight=1.0,
+                enable_reference_augmentation=True,
+                augmentation_copies=3,
+                augmentation_strength=0.4,
+                overfit_guard_strength=0.5,
+            )
+            self.assertEqual(tuned.details["phase4_aug_applied"], "true")
+            self.assertEqual(tuned.details["phase4_aug_copies"], 3.0)
+            self.assertEqual(tuned.details["phase4_overfit_guard_strength"], 0.5)
+            self.assertGreaterEqual(float(tuned.details["phase4_aug_virtual_rows"]), 3.0)
+            self.assertLess(abs(tuned.conditioning.face_shift_x), abs(base.conditioning.face_shift_x))
+            self.assertLess(abs(tuned.conditioning.tone_shift), abs(base.conditioning.tone_shift))
+
 
 if __name__ == "__main__":
     unittest.main()

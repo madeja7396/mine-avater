@@ -24,6 +24,10 @@ class GeneratorConfig:
     vit_device: str = "cpu"
     vit_enable_3d_conditioning: bool = False
     vit_3d_conditioning_weight: float = 0.35
+    vit_enable_reference_augmentation: bool = False
+    vit_augmentation_copies: int = 1
+    vit_augmentation_strength: float = 0.15
+    vit_overfit_guard_strength: float = 0.0
     temporal_spatial_loss_weight: float = 0.0
     temporal_smooth_factor: float = 0.35
 

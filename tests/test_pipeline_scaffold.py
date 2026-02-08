@@ -125,6 +125,13 @@ class PipelineScaffoldTest(unittest.TestCase):
                 "--vit-enable-3d-conditioning",
                 "--vit-3d-conditioning-weight",
                 "0.6",
+                "--vit-enable-reference-augmentation",
+                "--vit-augmentation-copies",
+                "3",
+                "--vit-augmentation-strength",
+                "0.35",
+                "--vit-overfit-guard-strength",
+                "0.25",
                 "--temporal-spatial-loss-weight",
                 "0.5",
                 "--temporal-smooth-factor",
@@ -145,6 +152,10 @@ class PipelineScaffoldTest(unittest.TestCase):
             self.assertEqual(manifest["stages"]["generator"]["vit_reference_count"], 2)
             self.assertEqual(manifest["stages"]["generator"]["vit_enable_3d_conditioning"], True)
             self.assertEqual(manifest["stages"]["generator"]["vit_3d_conditioning_weight"], 0.6)
+            self.assertEqual(manifest["stages"]["generator"]["vit_enable_reference_augmentation"], True)
+            self.assertEqual(manifest["stages"]["generator"]["vit_augmentation_copies"], 3)
+            self.assertEqual(manifest["stages"]["generator"]["vit_augmentation_strength"], 0.35)
+            self.assertEqual(manifest["stages"]["generator"]["vit_overfit_guard_strength"], 0.25)
             self.assertEqual(manifest["stages"]["generator"]["temporal_spatial_loss_weight"], 0.5)
             self.assertEqual(manifest["stages"]["generator"]["temporal_smooth_factor"], 0.4)
 
@@ -195,6 +206,72 @@ class PipelineScaffoldTest(unittest.TestCase):
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("ERROR: invalid_temporal_spatial_loss_weight", result.stdout)
+
+    def test_scaffold_pipeline_rejects_invalid_vit_augmentation_copies(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_audio = root / "input.wav"
+            reference_image = root / "face.png"
+            workspace = root / "workspace"
+            self.write_sine_wav(input_audio)
+            self.write_png(reference_image)
+
+            result = self.run_cmd(
+                "--input-audio",
+                str(input_audio),
+                "--reference-image",
+                str(reference_image),
+                "--workspace",
+                str(workspace),
+                "--vit-augmentation-copies",
+                "0",
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("ERROR: invalid_vit_augmentation_copies", result.stdout)
+
+    def test_scaffold_pipeline_rejects_invalid_vit_augmentation_strength(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_audio = root / "input.wav"
+            reference_image = root / "face.png"
+            workspace = root / "workspace"
+            self.write_sine_wav(input_audio)
+            self.write_png(reference_image)
+
+            result = self.run_cmd(
+                "--input-audio",
+                str(input_audio),
+                "--reference-image",
+                str(reference_image),
+                "--workspace",
+                str(workspace),
+                "--vit-augmentation-strength",
+                "1.4",
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("ERROR: invalid_vit_augmentation_strength", result.stdout)
+
+    def test_scaffold_pipeline_rejects_invalid_vit_overfit_guard_strength(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_audio = root / "input.wav"
+            reference_image = root / "face.png"
+            workspace = root / "workspace"
+            self.write_sine_wav(input_audio)
+            self.write_png(reference_image)
+
+            result = self.run_cmd(
+                "--input-audio",
+                str(input_audio),
+                "--reference-image",
+                str(reference_image),
+                "--workspace",
+                str(workspace),
+                "--vit-overfit-guard-strength",
+                "-0.2",
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("ERROR: invalid_vit_overfit_guard_strength", result.stdout)
 
     def test_scaffold_pipeline_rejects_invalid_temporal_smooth_factor(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
