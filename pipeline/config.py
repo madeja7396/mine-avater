@@ -22,6 +22,10 @@ class GeneratorConfig:
     vit_model_name: str = "google/vit-base-patch16-224"
     vit_use_pretrained: bool = False
     vit_device: str = "cpu"
+    vit_enable_3d_conditioning: bool = False
+    vit_3d_conditioning_weight: float = 0.35
+    temporal_spatial_loss_weight: float = 0.0
+    temporal_smooth_factor: float = 0.35
 
 
 @dataclass(frozen=True)

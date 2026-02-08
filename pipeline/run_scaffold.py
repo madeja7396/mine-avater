@@ -34,6 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--vit-model-name", default="google/vit-base-patch16-224")
     parser.add_argument("--vit-use-pretrained", action="store_true")
     parser.add_argument("--vit-device", default="cpu")
+    parser.add_argument("--vit-enable-3d-conditioning", action="store_true")
+    parser.add_argument("--vit-3d-conditioning-weight", type=float, default=0.35)
+    parser.add_argument("--temporal-spatial-loss-weight", type=float, default=0.0)
+    parser.add_argument("--temporal-smooth-factor", type=float, default=0.35)
     return parser
 
 
@@ -71,6 +75,21 @@ def main() -> int:
     if args.vit_reference_limit <= 0:
         print(f"ERROR: invalid_vit_reference_limit value={args.vit_reference_limit}")
         return 1
+    if args.vit_3d_conditioning_weight < 0.0 or args.vit_3d_conditioning_weight > 1.0:
+        print(
+            "ERROR: invalid_vit_3d_conditioning_weight "
+            f"value={args.vit_3d_conditioning_weight}"
+        )
+        return 1
+    if args.temporal_spatial_loss_weight < 0.0 or args.temporal_spatial_loss_weight > 1.0:
+        print(
+            "ERROR: invalid_temporal_spatial_loss_weight "
+            f"value={args.temporal_spatial_loss_weight}"
+        )
+        return 1
+    if args.temporal_smooth_factor < 0.0 or args.temporal_smooth_factor > 1.0:
+        print(f"ERROR: invalid_temporal_smooth_factor value={args.temporal_smooth_factor}")
+        return 1
     if args.vit_reference_dir is not None and not Path(args.vit_reference_dir).is_dir():
         print(f"ERROR: vit_reference_dir_not_found path={args.vit_reference_dir}")
         return 1
@@ -102,6 +121,10 @@ def main() -> int:
             vit_model_name=args.vit_model_name,
             vit_use_pretrained=args.vit_use_pretrained,
             vit_device=args.vit_device,
+            vit_enable_3d_conditioning=args.vit_enable_3d_conditioning,
+            vit_3d_conditioning_weight=args.vit_3d_conditioning_weight,
+            temporal_spatial_loss_weight=args.temporal_spatial_loss_weight,
+            temporal_smooth_factor=args.temporal_smooth_factor,
         ),
         postprocess=PostprocessConfig(fps=args.fps),
     )

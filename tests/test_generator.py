@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import struct
 import tempfile
@@ -135,6 +136,109 @@ class GeneratorTest(unittest.TestCase):
             details = result["vit_details"]
             self.assertTrue(isinstance(details, dict))
             self.assertEqual(details.get("reference_count"), 2.0)
+
+    def test_generate_frames_vit_mock_with_3d_conditioning(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            reference_image = root / "face.png"
+            input_audio = root / "input.wav"
+            audio_features = root / "audio_features.npy"
+            mouth_landmarks = root / "mouth_landmarks.json"
+            frames_dir = root / "frames"
+
+            reference_image.write_bytes(TINY_PNG)
+            self.write_sine_wav(input_audio)
+            extract_audio_features(input_audio, audio_features)
+            mouth_landmarks.write_text(
+                json.dumps(
+                    [
+                        {
+                            "frame_index": 0,
+                            "points": [
+                                [0.50, 0.58],
+                                [0.53, 0.70],
+                                [0.55, 0.72],
+                                [0.58, 0.58],
+                            ],
+                        }
+                    ],
+                    ensure_ascii=True,
+                ),
+                encoding="utf-8",
+            )
+
+            result = generate_frames_with_backend(
+                reference_image=reference_image,
+                audio_features=audio_features,
+                mouth_landmarks=mouth_landmarks,
+                output_dir=frames_dir,
+                frame_count=3,
+                backend="vit-mock",
+                vit_enable_3d_conditioning=True,
+                vit_3d_conditioning_weight=0.8,
+            )
+
+            details = result["vit_details"]
+            self.assertTrue(isinstance(details, dict))
+            self.assertEqual(details.get("spatial_3d_applied"), "true")
+            self.assertEqual(details.get("spatial_3d_weight"), 0.8)
+            self.assertTrue(isinstance(details.get("spatial_3d_yaw"), float))
+            self.assertEqual(result["vit_enable_3d_conditioning"], True)
+
+    def test_generate_frames_reports_temporal_spatial_loss(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            reference_image = root / "face.png"
+            input_audio = root / "input.wav"
+            audio_features = root / "audio_features.npy"
+            mouth_landmarks = root / "mouth_landmarks.json"
+            frames_dir = root / "frames"
+
+            reference_image.write_bytes(TINY_PNG)
+            self.write_sine_wav(input_audio)
+            extract_audio_features(input_audio, audio_features)
+            mouth_landmarks.write_text(
+                json.dumps(
+                    [
+                        {
+                            "frame_index": 0,
+                            "points": [
+                                [0.40, 0.58],
+                                [0.46, 0.62],
+                                [0.54, 0.66],
+                                [0.60, 0.58],
+                            ],
+                        },
+                        {
+                            "frame_index": 1,
+                            "points": [
+                                [0.42, 0.58],
+                                [0.48, 0.70],
+                                [0.56, 0.74],
+                                [0.62, 0.58],
+                            ],
+                        },
+                    ],
+                    ensure_ascii=True,
+                ),
+                encoding="utf-8",
+            )
+
+            result = generate_frames_with_backend(
+                reference_image=reference_image,
+                audio_features=audio_features,
+                mouth_landmarks=mouth_landmarks,
+                output_dir=frames_dir,
+                frame_count=4,
+                backend="heuristic",
+                temporal_spatial_loss_weight=0.7,
+                temporal_smooth_factor=0.5,
+            )
+
+            self.assertEqual(result["backend_used"], "heuristic")
+            self.assertEqual(result["temporal_spatial_loss_weight"], 0.7)
+            self.assertEqual(result["temporal_smooth_factor"], 0.5)
+            self.assertGreater(float(result["temporal_spatial_loss_mean"]), 0.0)
 
 
 if __name__ == "__main__":

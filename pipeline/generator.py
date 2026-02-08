@@ -130,6 +130,73 @@ def _render_frame(
     return bytes(pixels)
 
 
+def _estimate_mock_3d_params(landmarks: list[dict]) -> dict[str, float]:
+    if not landmarks:
+        return {"yaw": 0.0, "pitch": 0.0, "depth": 0.0}
+
+    yaw_values: list[float] = []
+    pitch_values: list[float] = []
+    depth_values: list[float] = []
+    for row in landmarks:
+        points = row.get("points", [])
+        if len(points) < 4:
+            continue
+        left = points[0]
+        upper = points[1]
+        lower = points[2]
+        right = points[3]
+        lx, ly = float(left[0]), float(left[1])
+        rx, ry = float(right[0]), float(right[1])
+        uy = float(upper[1])
+        vy = float(lower[1])
+
+        center_x = (lx + rx) * 0.5
+        center_y = (uy + vy) * 0.5
+        width = max(1e-6, abs(rx - lx))
+        open_ratio = abs(vy - ly)
+
+        # Proxy values derived from mouth geometry to emulate coarse 3DMM signals.
+        yaw_values.append(_clamp((center_x - 0.5) / 0.25, -1.0, 1.0))
+        pitch_values.append(_clamp((center_y - 0.62) / 0.18, -1.0, 1.0))
+        depth_values.append(_clamp((0.12 - width) / 0.08 + (open_ratio - 0.03) * 2.0, -1.0, 1.0))
+
+    if not yaw_values:
+        return {"yaw": 0.0, "pitch": 0.0, "depth": 0.0}
+
+    n = float(len(yaw_values))
+    return {
+        "yaw": sum(yaw_values) / n,
+        "pitch": sum(pitch_values) / n,
+        "depth": sum(depth_values) / n,
+    }
+
+
+def _temporal_spatial_loss(points: list[list[float]], mouth_open: float, prev_open: float | None) -> float:
+    left = points[0]
+    upper = points[1]
+    lower = points[2]
+    right = points[3]
+
+    lx, ly = float(left[0]), float(left[1])
+    ux, uy = float(upper[0]), float(upper[1])
+    vx, vy = float(lower[0]), float(lower[1])
+    rx, ry = float(right[0]), float(right[1])
+
+    center_x = (ux + vx) * 0.5
+    left_span = abs(center_x - lx)
+    right_span = abs(rx - center_x)
+    horizontal_symmetry = abs(left_span - right_span)
+    vertical_span = abs(vy - uy)
+    corner_skew = abs(ly - ry)
+    spatial = _clamp((horizontal_symmetry * 4.0) + abs(vertical_span - 0.02) * 6.0 + corner_skew * 2.0, 0.0, 1.0)
+
+    if prev_open is None:
+        temporal = 0.0
+    else:
+        temporal = _clamp(abs(mouth_open - prev_open) * 5.0, 0.0, 1.0)
+    return _clamp((0.65 * temporal) + (0.35 * spatial), 0.0, 1.0)
+
+
 def generate_frames(
     reference_image: Path,
     audio_features: Path,
@@ -161,6 +228,10 @@ def generate_frames_with_backend(
     vit_model_name: str = "google/vit-base-patch16-224",
     vit_use_pretrained: bool = False,
     vit_device: str = "cpu",
+    vit_enable_3d_conditioning: bool = False,
+    vit_3d_conditioning_weight: float = 0.35,
+    temporal_spatial_loss_weight: float = 0.0,
+    temporal_smooth_factor: float = 0.35,
 ) -> dict[str, object]:
     width, height = get_image_size(reference_image)
     width = max(64, min(width, 256))
@@ -174,6 +245,8 @@ def generate_frames_with_backend(
     if not landmarks:
         landmarks = [{"frame_index": 0, "points": [[0.4, 0.6], [0.46, 0.62], [0.54, 0.62], [0.6, 0.6]]}]
 
+    spatial_params = _estimate_mock_3d_params(landmarks) if vit_enable_3d_conditioning else None
+
     vit_result = resolve_vit_conditioning(
         reference_image=reference_image,
         width=width,
@@ -186,7 +259,14 @@ def generate_frames_with_backend(
         use_pretrained=vit_use_pretrained,
         device=vit_device,
         reference_images=vit_reference_images,
+        spatial_params=spatial_params,
+        spatial_weight=vit_3d_conditioning_weight,
     )
+
+    temporal_weight = _clamp(temporal_spatial_loss_weight, 0.0, 1.0)
+    smooth_factor = _clamp(temporal_smooth_factor, 0.0, 1.0)
+    prev_mouth_open: float | None = None
+    loss_values: list[float] = []
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for i in range(frame_count):
@@ -201,10 +281,21 @@ def generate_frames_with_backend(
 
         mouth_cx = float(points[1][0] + points[2][0]) * 0.5
         mouth_cy = float(points[1][1] + points[2][1]) * 0.5
-        mouth_open = (
+        raw_mouth_open = (
             abs(float(points[1][1]) - float(points[0][1]))
             + energy * 0.15 * vit_result.conditioning.mouth_gain
         )
+        loss_value = _temporal_spatial_loss(points, raw_mouth_open, prev_mouth_open)
+        loss_values.append(loss_value)
+        target_open = raw_mouth_open * (1.0 - (temporal_weight * 0.5 * loss_value))
+        if prev_mouth_open is None:
+            mouth_open = target_open
+        else:
+            mouth_open = (target_open * (1.0 - smooth_factor * temporal_weight)) + (
+                prev_mouth_open * smooth_factor * temporal_weight
+            )
+        mouth_open = _clamp(mouth_open, 0.0, 1.2)
+        prev_mouth_open = mouth_open
 
         frame = _render_frame(
             width,
@@ -225,4 +316,11 @@ def generate_frames_with_backend(
         "vit_model_name": vit_model_name,
         "vit_use_pretrained": vit_use_pretrained,
         "vit_device": vit_device,
+        "vit_enable_3d_conditioning": vit_enable_3d_conditioning,
+        "vit_3d_conditioning_weight": vit_3d_conditioning_weight,
+        "temporal_spatial_loss_weight": temporal_weight,
+        "temporal_smooth_factor": smooth_factor,
+        "temporal_spatial_loss_mean": (
+            sum(loss_values) / max(1.0, float(len(loss_values)))
+        ),
     }

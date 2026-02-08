@@ -23,7 +23,10 @@ def _ffmpeg_decode_rgb(path: Path, width: int, height: int) -> bytes | None:
         f"{width}x{height}",
         "-",
     ]
-    result = subprocess.run(command, capture_output=True, check=False)
+    try:
+        result = subprocess.run(command, capture_output=True, check=False)
+    except (FileNotFoundError, OSError):
+        return None
     if result.returncode != 0:
         return None
     expected = width * height * 3
@@ -163,4 +166,3 @@ def load_rgb_image(path: Path, width: int, height: int) -> bytes:
     if decoded is not None:
         return decoded
     return _fallback_bytes(path, width, height)
-

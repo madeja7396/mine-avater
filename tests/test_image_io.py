@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from pipeline.image_io import load_rgb_image
 
@@ -28,7 +29,14 @@ class ImageIOTest(unittest.TestCase):
             rgb = load_rgb_image(image, width=8, height=8)
             self.assertEqual(len(rgb), 8 * 8 * 3)
 
+    def test_load_rgb_image_without_ffmpeg(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            image = Path(tmp_dir) / "face.png"
+            image.write_bytes(TINY_PNG)
+            with mock.patch("pipeline.image_io.subprocess.run", side_effect=FileNotFoundError()):
+                rgb = load_rgb_image(image, width=4, height=4)
+            self.assertEqual(len(rgb), 4 * 4 * 3)
+
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -2,7 +2,7 @@
 
 最終更新日時: 2026-02-08  
 ブランチ: `main`  
-HEAD: `ee399f8`
+HEAD: `3e67bd1`
 
 ## 1. 実装済み
 
@@ -19,9 +19,20 @@ HEAD: `ee399f8`
 - multi-view ViT条件付け
   - `--vit-reference-dir`, `--vit-reference-limit` 追加
   - 参照画像 + 追加参照画像を融合して conditioning 算出
+- 3D-aware条件付け（検証向け）
+  - `--vit-enable-3d-conditioning`, `--vit-3d-conditioning-weight` 追加
+  - mouth landmarks から mock 3D パラメータ（yaw/pitch/depth）を推定して ViT conditioning に融合
+  - `pipeline_run.json` の generator stage に 3D-aware 設定を記録
+- 時空間損失（検証向け）
+  - `--temporal-spatial-loss-weight`, `--temporal-smooth-factor` 追加
+  - 口ランドマークから temporal-spatial loss proxy を算出し、口開閉をフレーム間で平滑化
+  - `pipeline_run.json` の generator stage に loss 関連設定を記録
 - CI監視/障害トリアージ
   - `ci/monitor_ci.py`
   - 失敗ジョブのログ取得 + `skills/avatar-ci-guardian/scripts/triage_ci_log.py` 実行
+- CI耐障害性の改善
+  - `pipeline/image_io.py` の ffmpeg 呼び出しで `FileNotFoundError` / `OSError` を吸収
+  - ffmpeg 未導入環境でも PNG/byte fallback へ遷移し、`vit-mock` smoke が継続可能
 - `.env.lock` 運用整備
   - `.env.lock.example` 追加
   - `.env.lock` を `.gitignore` で除外
@@ -41,7 +52,7 @@ HEAD: `ee399f8`
   - `psnr_mean=31.1600`
   - `ssim_mean=0.9466`
   - `throughput_fps=21.50`
-- `test_unit` 成功（40 tests）
+- `test_unit` 成功（47 tests）
 - `test_smoke` 成功
 - `test_vit_smoke` 成功
 - `test_full` 成功
@@ -54,22 +65,26 @@ HEAD: `ee399f8`
 
 ## 3. CI監視の現状
 
-実行コマンド: `make monitor_ci`  
-結果: 失敗（GitHub API 404）
+実行コマンド: `make monitor_ci` / `make monitor_ci_triage`  
+結果: 最新run検出は成功、failed jobs のログ取得は権限不足で失敗（GitHub API 403）
 
-- エラー: `ci_monitor_fetch_failed ... status=404`
-- 同時点のローカル確認: `GITHUB_TOKEN_LENGTH=0`
-- このワークスペースでは `.env.lock` の `GITHUB_TOKEN` が空のため、private repo API が未認証扱い
+- 最新CI run: `21795298189`（`validate (3.11)` / `validate (3.12)` が failure）
+- jobs API では失敗ステップが `Run vit-mock smoke test` と判明
+- ローカル再現（ffmpeg 非存在 PATH）で `FileNotFoundError: ffmpeg` を確認し、fallback修正を実装済み
+- エラー: `ci_auto_triage_log_fetch_failed ... status=403 (Must have admin rights to Repository)`
+- `.env.lock` のトークン設定により run一覧取得は成功。ジョブログ取得には追加権限が必要
 
 ## 4. 再開手順（次回セッション開始時）
 
-1. `.env.lock` に `GITHUB_TOKEN` を設定
-2. `make monitor_ci` を再実行して認証確認
+1. `repo` 管理者権限相当のトークンに更新（job logs API が 403 を返さない権限）
+2. `make monitor_ci_triage` を再実行して failed jobs のログ取得/triageを確認
 3. `make test_all` で回帰確認
-4. 本実装を `specs/roadmap.md` の Phase 3（空間表現強化）から継続
+4. 修正を push して CI 再実行し、`Run vit-mock smoke test` の再発有無を確認
+5. 本実装を `specs/roadmap.md` の Phase 4（augmentationと過学習抑制）から継続
 
 ## 5. 直近コミット履歴
 
+- `3e67bd1` docs: snapshot current implementation and handoff status
 - `ee399f8` feat: add multi-view vit conditioning and secure env lock flow
 - `524fcee` feat: support CI failure auto-triage with job log retrieval
 - `2614c3a` feat: auto-triage failed CI jobs from monitor command

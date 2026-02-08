@@ -231,33 +231,74 @@ def resolve_vit_conditioning(
     use_pretrained: bool,
     device: str,
     reference_images: list[Path] | None = None,
+    spatial_params: dict[str, float] | None = None,
+    spatial_weight: float = 0.0,
 ) -> VitResult:
-    if backend == "heuristic":
+    def with_spatial(base: VitResult) -> VitResult:
+        if not spatial_params:
+            return VitResult(
+                conditioning=base.conditioning,
+                backend_used=base.backend_used,
+                details={**base.details, "spatial_3d_applied": "false"},
+            )
+
+        weight = _clamp(spatial_weight, 0.0, 1.0)
+        yaw = _clamp(float(spatial_params.get("yaw", 0.0)), -1.0, 1.0)
+        pitch = _clamp(float(spatial_params.get("pitch", 0.0)), -1.0, 1.0)
+        depth = _clamp(float(spatial_params.get("depth", 0.0)), -1.0, 1.0)
+
+        cond = base.conditioning
+        conditioned = VitConditioning(
+            face_shift_x=_clamp(cond.face_shift_x + (yaw * 0.06 * weight), -0.15, 0.15),
+            face_shift_y=_clamp(cond.face_shift_y + (pitch * 0.06 * weight), -0.15, 0.15),
+            mouth_gain=_clamp(cond.mouth_gain * (1.0 + depth * 0.25 * weight), 0.5, 1.8),
+            tone_shift=_clamp(cond.tone_shift + (depth * 0.10 * weight), -0.5, 0.5),
+        )
         return VitResult(
-            conditioning=VitConditioning(0.0, 0.0, 1.0, 0.0),
-            backend_used="heuristic",
-            details={"message": "heuristic mode"},
+            conditioning=conditioned,
+            backend_used=base.backend_used,
+            details={
+                **base.details,
+                "spatial_3d_applied": "true",
+                "spatial_3d_weight": weight,
+                "spatial_3d_yaw": yaw,
+                "spatial_3d_pitch": pitch,
+                "spatial_3d_depth": depth,
+            },
+        )
+
+    if backend == "heuristic":
+        return with_spatial(
+            VitResult(
+                conditioning=VitConditioning(0.0, 0.0, 1.0, 0.0),
+                backend_used="heuristic",
+                details={"message": "heuristic mode"},
+            )
         )
 
     if backend == "vit-mock":
-        return compute_mock_vit_conditioning(
-            reference_image=reference_image,
-            width=width,
-            height=height,
-            patch_size=patch_size,
-            reference_images=reference_images,
+        return with_spatial(
+            compute_mock_vit_conditioning(
+                reference_image=reference_image,
+                width=width,
+                height=height,
+                patch_size=patch_size,
+                reference_images=reference_images,
+            )
         )
 
     if backend in ("vit-hf", "vit-auto"):
         try:
-            return compute_hf_vit_conditioning(
-                reference_image,
-                image_size=image_size,
-                patch_size=patch_size,
-                model_name=model_name,
-                use_pretrained=use_pretrained,
-                device=device,
-                reference_images=reference_images,
+            return with_spatial(
+                compute_hf_vit_conditioning(
+                    reference_image,
+                    image_size=image_size,
+                    patch_size=patch_size,
+                    model_name=model_name,
+                    use_pretrained=use_pretrained,
+                    device=device,
+                    reference_images=reference_images,
+                )
             )
         except Exception as exc:
             if backend == "vit-hf" and not fallback_mock:
@@ -269,10 +310,12 @@ def resolve_vit_conditioning(
                 patch_size=patch_size,
                 reference_images=reference_images,
             )
-            return VitResult(
-                conditioning=mock.conditioning,
-                backend_used="vit-mock-fallback",
-                details={"reason": str(exc), **mock.details},
+            return with_spatial(
+                VitResult(
+                    conditioning=mock.conditioning,
+                    backend_used="vit-mock-fallback",
+                    details={"reason": str(exc), **mock.details},
+                )
             )
 
     raise ValueError(f"Unknown generator backend: {backend}")

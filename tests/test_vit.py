@@ -75,6 +75,31 @@ class VitTest(unittest.TestCase):
                     device="cpu",
                 )
 
+    def test_resolve_heuristic_with_spatial_params(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            image = Path(tmp_dir) / "face.png"
+            image.write_bytes(TINY_PNG)
+            result = resolve_vit_conditioning(
+                reference_image=image,
+                width=128,
+                height=128,
+                backend="heuristic",
+                patch_size=16,
+                image_size=224,
+                fallback_mock=True,
+                model_name="google/vit-base-patch16-224",
+                use_pretrained=False,
+                device="cpu",
+                spatial_params={"yaw": 0.8, "pitch": -0.5, "depth": 0.6},
+                spatial_weight=1.0,
+            )
+            self.assertEqual(result.backend_used, "heuristic")
+            self.assertEqual(result.details["spatial_3d_applied"], "true")
+            self.assertGreater(result.conditioning.face_shift_x, 0.0)
+            self.assertLess(result.conditioning.face_shift_y, 0.0)
+            self.assertGreater(result.conditioning.mouth_gain, 1.0)
+            self.assertGreater(result.conditioning.tone_shift, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

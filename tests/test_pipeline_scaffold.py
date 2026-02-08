@@ -122,6 +122,13 @@ class PipelineScaffoldTest(unittest.TestCase):
                 str(reference_dir),
                 "--vit-reference-limit",
                 "1",
+                "--vit-enable-3d-conditioning",
+                "--vit-3d-conditioning-weight",
+                "0.6",
+                "--temporal-spatial-loss-weight",
+                "0.5",
+                "--temporal-smooth-factor",
+                "0.4",
             )
 
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
@@ -136,9 +143,80 @@ class PipelineScaffoldTest(unittest.TestCase):
             self.assertEqual(manifest["stages"]["generator"]["backend_requested"], "vit-mock")
             self.assertIn("vit-mock", manifest["stages"]["generator"]["backend_used"])
             self.assertEqual(manifest["stages"]["generator"]["vit_reference_count"], 2)
+            self.assertEqual(manifest["stages"]["generator"]["vit_enable_3d_conditioning"], True)
+            self.assertEqual(manifest["stages"]["generator"]["vit_3d_conditioning_weight"], 0.6)
+            self.assertEqual(manifest["stages"]["generator"]["temporal_spatial_loss_weight"], 0.5)
+            self.assertEqual(manifest["stages"]["generator"]["temporal_smooth_factor"], 0.4)
 
             meta = json.loads((workspace / "output.mp4.meta.json").read_text(encoding="utf-8"))
             self.assertEqual(meta["fps"], 15)
+
+    def test_scaffold_pipeline_rejects_invalid_vit_3d_weight(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_audio = root / "input.wav"
+            reference_image = root / "face.png"
+            workspace = root / "workspace"
+            self.write_sine_wav(input_audio)
+            self.write_png(reference_image)
+
+            result = self.run_cmd(
+                "--input-audio",
+                str(input_audio),
+                "--reference-image",
+                str(reference_image),
+                "--workspace",
+                str(workspace),
+                "--vit-enable-3d-conditioning",
+                "--vit-3d-conditioning-weight",
+                "1.5",
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("ERROR: invalid_vit_3d_conditioning_weight", result.stdout)
+
+    def test_scaffold_pipeline_rejects_invalid_temporal_loss_weight(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_audio = root / "input.wav"
+            reference_image = root / "face.png"
+            workspace = root / "workspace"
+            self.write_sine_wav(input_audio)
+            self.write_png(reference_image)
+
+            result = self.run_cmd(
+                "--input-audio",
+                str(input_audio),
+                "--reference-image",
+                str(reference_image),
+                "--workspace",
+                str(workspace),
+                "--temporal-spatial-loss-weight",
+                "1.2",
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("ERROR: invalid_temporal_spatial_loss_weight", result.stdout)
+
+    def test_scaffold_pipeline_rejects_invalid_temporal_smooth_factor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_audio = root / "input.wav"
+            reference_image = root / "face.png"
+            workspace = root / "workspace"
+            self.write_sine_wav(input_audio)
+            self.write_png(reference_image)
+
+            result = self.run_cmd(
+                "--input-audio",
+                str(input_audio),
+                "--reference-image",
+                str(reference_image),
+                "--workspace",
+                str(workspace),
+                "--temporal-smooth-factor",
+                "-0.1",
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("ERROR: invalid_temporal_smooth_factor", result.stdout)
 
     def test_scaffold_pipeline_rejects_invalid_vit_grid(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

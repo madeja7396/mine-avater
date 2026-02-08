@@ -84,6 +84,10 @@ class ScaffoldGenerator(Generator):
             "vit_model_name": self.config.vit_model_name,
             "vit_use_pretrained": self.config.vit_use_pretrained,
             "vit_device": self.config.vit_device,
+            "vit_enable_3d_conditioning": self.config.vit_enable_3d_conditioning,
+            "vit_3d_conditioning_weight": self.config.vit_3d_conditioning_weight,
+            "temporal_spatial_loss_weight": self.config.temporal_spatial_loss_weight,
+            "temporal_smooth_factor": self.config.temporal_smooth_factor,
         }
 
     def run(
@@ -109,6 +113,10 @@ class ScaffoldGenerator(Generator):
             vit_model_name=self.config.vit_model_name,
             vit_use_pretrained=self.config.vit_use_pretrained,
             vit_device=self.config.vit_device,
+            vit_enable_3d_conditioning=self.config.vit_enable_3d_conditioning,
+            vit_3d_conditioning_weight=self.config.vit_3d_conditioning_weight,
+            temporal_spatial_loss_weight=self.config.temporal_spatial_loss_weight,
+            temporal_smooth_factor=self.config.temporal_smooth_factor,
         )
         self._backend_used = str(result.get("backend_used", "unknown"))
         details = result.get("vit_details")

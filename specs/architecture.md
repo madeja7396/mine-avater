@@ -12,6 +12,10 @@
 実行制御は `pipeline/engine.py`、ステージ設定は `pipeline/config.py` で管理する。
 Generatorは `heuristic` と `ViT系バックエンド（vit-mock / vit-hf / vit-auto）` の切替を持つ。
 ViT系ではオプションで `vit_reference_dir` を指定し、複数参照画像のmulti-view融合を行う。
+さらに検証向けオプションとして、mouth landmarks 由来の mock 3D パラメータ（yaw/pitch/depth）を
+`vit_enable_3d_conditioning` + `vit_3d_conditioning_weight` で条件付けへ融合できる。
+加えて `temporal_spatial_loss_weight` + `temporal_smooth_factor` により、口形状変化に対する
+時空間損失プロキシを算出し、フレーム間の口開閉変動を平滑化する。
 画像デコードは `pipeline/image_io.py` を介して行い、`ffmpeg` 優先・PNGデコーダ/バイトフォールバックを備える。
 
 ## 2. 中間成果物
