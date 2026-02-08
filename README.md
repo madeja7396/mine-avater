@@ -77,6 +77,7 @@ python3 harness/task_lock.py reap
 
 - 開発ガイド: `docs/guidelines/development.md`
 - テスト/CI運用: `docs/guidelines/testing-ci.md`
+- 現状ステータス: `docs/current-status.md`
 - 参加方法: `CONTRIBUTING.md`
 - アーキテクチャ外枠: `specs/architecture.md`
 
