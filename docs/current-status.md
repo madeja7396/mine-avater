@@ -2,7 +2,7 @@
 
 最終更新日時: 2026-02-08  
 ブランチ: `main`  
-HEAD: `3e67bd1`
+HEAD: `af8b85e`
 
 ## 1. 実装済み
 
@@ -66,24 +66,23 @@ HEAD: `3e67bd1`
 ## 3. CI監視の現状
 
 実行コマンド: `make monitor_ci` / `make monitor_ci_triage`  
-結果: 最新run検出は成功、failed jobs のログ取得は権限不足で失敗（GitHub API 403）
+結果: 最新runは成功
 
-- 最新CI run: `21795298189`（`validate (3.11)` / `validate (3.12)` が failure）
-- jobs API では失敗ステップが `Run vit-mock smoke test` と判明
-- ローカル再現（ffmpeg 非存在 PATH）で `FileNotFoundError: ffmpeg` を確認し、fallback修正を実装済み
-- エラー: `ci_auto_triage_log_fetch_failed ... status=403 (Must have admin rights to Repository)`
-- `.env.lock` のトークン設定により run一覧取得は成功。ジョブログ取得には追加権限が必要
+- 最新CI run: `21795588821`（`conclusion=success`）
+- SHA: `af8b85e1b668e6ad2aa350ce06b3067f3d0d12bd`
+- 以前の失敗（`Run vit-mock smoke test`）は ffmpeg 非存在時の `FileNotFoundError` を修正済み
+- 補足: failed run のジョブログ自動取得は引き続きトークン権限（admin rights）に依存
 
 ## 4. 再開手順（次回セッション開始時）
 
-1. `repo` 管理者権限相当のトークンに更新（job logs API が 403 を返さない権限）
-2. `make monitor_ci_triage` を再実行して failed jobs のログ取得/triageを確認
-3. `make test_all` で回帰確認
-4. 修正を push して CI 再実行し、`Run vit-mock smoke test` の再発有無を確認
-5. 本実装を `specs/roadmap.md` の Phase 4（augmentationと過学習抑制）から継続
+1. `make monitor_ci` でCIグリーンを確認
+2. `make test_all` でローカル回帰確認
+3. 本実装を `specs/roadmap.md` の Phase 4（augmentationと過学習抑制）から継続
+4. 必要に応じて `repo` 管理者権限相当トークンで `make monitor_ci_triage` を有効化
 
 ## 5. 直近コミット履歴
 
+- `af8b85e` fix: harden vit smoke fallback and add temporal-spatial proxy
 - `3e67bd1` docs: snapshot current implementation and handoff status
 - `ee399f8` feat: add multi-view vit conditioning and secure env lock flow
 - `524fcee` feat: support CI failure auto-triage with job log retrieval
