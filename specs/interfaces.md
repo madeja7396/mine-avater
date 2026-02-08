@@ -22,9 +22,12 @@
 
 - `output.mp4`
   - 音声付き最終動画
+- `output.mp4.meta.json`
+  - 出力モード、fps、透かし有効状態などの実行メタ情報
+- `output.mp4.watermark.json`（既定有効）
+  - `watermark_id`, `watermark_label`, `policy_version` を含む透かしマニフェスト
 
 ## 4. 互換ポリシー
 
 - 既存キー・ファイル名は後方互換を維持する。
 - 破壊的変更時は `specs/` の更新と `eval` の更新を同時に行う。
-

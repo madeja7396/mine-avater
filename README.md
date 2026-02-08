@@ -53,6 +53,7 @@ python3 pipeline/run_scaffold.py \
 `ffmpeg` が使える環境では `output.mp4` を実動画として生成し、使えない環境ではプレースホルダ出力にフォールバックします。
 `--generator-backend` は `heuristic` / `vit-mock` / `vit-hf` / `vit-auto` を選択できます。`vit-hf` / `vit-auto` は `torch` と `transformers` が利用可能な場合に実ViTを使い、不可能な場合は設定に応じて `vit-mock` にフォールバックします。
 `--vit-reference-dir` を指定すると、参照画像に加えて複数画像を読み込み、ViT条件付けを multi-view 融合します。
+既定では `output.mp4.watermark.json` を出力し、透かし運用情報を保存します（`--disable-watermark` で無効化可能）。
 
 CI監視コマンドは `GITHUB_TOKEN` を環境変数または `.env.lock` から読み込みます。
 
@@ -80,6 +81,7 @@ python3 harness/task_lock.py reap
 - 現状ステータス: `docs/current-status.md`
 - 参加方法: `CONTRIBUTING.md`
 - アーキテクチャ外枠: `specs/architecture.md`
+- 研究用途ポリシー: `docs/research-use-policy.md`
 
 ## Skills
 

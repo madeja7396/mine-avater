@@ -19,6 +19,8 @@ Phase 4 の初期実装として、`vit_enable_reference_augmentation` + `vit_au
 加えて `temporal_spatial_loss_weight` + `temporal_smooth_factor` により、口形状変化に対する
 時空間損失プロキシを算出し、フレーム間の口開閉変動を平滑化する。
 画像デコードは `pipeline/image_io.py` を介して行い、`ffmpeg` 優先・PNGデコーダ/バイトフォールバックを備える。
+Postprocessorは標準で `output.mp4.watermark.json` を生成し、`output.mp4.meta.json` に
+透かし識別子とポリシーバージョンを記録する。
 
 ## 2. 中間成果物
 

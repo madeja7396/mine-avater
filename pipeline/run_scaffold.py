@@ -21,6 +21,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hop-ms", type=float, default=10.0)
     parser.add_argument("--frame-count", type=int, default=12)
     parser.add_argument("--fps", type=int, default=25)
+    parser.add_argument("--disable-watermark", action="store_true")
+    parser.add_argument("--watermark-label", default="MINE-AVATER/RESEARCH-ONLY")
     parser.add_argument(
         "--generator-backend",
         choices=["heuristic", "vit-mock", "vit-hf", "vit-auto"],
@@ -63,6 +65,9 @@ def main() -> int:
         return 1
     if args.fps <= 0:
         print(f"ERROR: invalid_fps value={args.fps}")
+        return 1
+    if not args.watermark_label.strip():
+        print("ERROR: invalid_watermark_label empty")
         return 1
     if args.window_ms <= 0.0 or args.hop_ms <= 0.0:
         print(
@@ -149,7 +154,11 @@ def main() -> int:
             temporal_spatial_loss_weight=args.temporal_spatial_loss_weight,
             temporal_smooth_factor=args.temporal_smooth_factor,
         ),
-        postprocess=PostprocessConfig(fps=args.fps),
+        postprocess=PostprocessConfig(
+            fps=args.fps,
+            watermark_enabled=not args.disable_watermark,
+            watermark_label=args.watermark_label.strip(),
+        ),
     )
 
     output = run_scaffold_pipeline(

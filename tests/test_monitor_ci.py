@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ci.monitor_ci import (
     MonitorOptions,
+    build_job_fallback_log,
     collect_failed_jobs,
     decode_log_payload,
     evaluate_exit,
@@ -111,6 +112,20 @@ class MonitorCITest(unittest.TestCase):
             )
             token = load_token_from_env_file(str(p), "GITHUB_TOKEN")
             self.assertEqual(token, "abc123")
+
+    def test_build_job_fallback_log(self) -> None:
+        job = {
+            "name": "validate (3.11)",
+            "conclusion": "failure",
+            "steps": [
+                {"name": "Run lint", "conclusion": "success"},
+                {"name": "Run vit-mock smoke test", "conclusion": "failure"},
+            ],
+        }
+        text = build_job_fallback_log(job, reason="status=403")
+        self.assertIn("ERROR: ci_job_log_unavailable", text)
+        self.assertIn("ERROR: fallback_reason=status=403", text)
+        self.assertIn("ERROR: step_failed name=Run vit-mock smoke test", text)
 
 
 if __name__ == "__main__":

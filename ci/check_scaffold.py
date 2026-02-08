@@ -26,6 +26,7 @@ REQUIRED_FILES = [
     Path("specs/quality_thresholds.json"),
     Path("docs/guidelines/development.md"),
     Path("docs/guidelines/testing-ci.md"),
+    Path("docs/research-use-policy.md"),
     Path("harness/task_lock.py"),
     Path("ci/eval_runner.py"),
     Path("ci/__init__.py"),

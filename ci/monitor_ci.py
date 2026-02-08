@@ -258,6 +258,24 @@ def run_triage_script(script: str, log_path: Path) -> tuple[int, str, str]:
     return result.returncode, result.stdout, result.stderr
 
 
+def build_job_fallback_log(job: dict[str, Any], reason: str) -> str:
+    lines = [
+        "ERROR: ci_job_log_unavailable",
+        f"ERROR: fallback_reason={reason}",
+        f"ERROR: job_name={job.get('name','')}",
+        f"ERROR: job_conclusion={job.get('conclusion','')}",
+    ]
+    steps = job.get("steps", [])
+    if isinstance(steps, list):
+        for step in steps:
+            name = str(step.get("name", ""))
+            conclusion = str(step.get("conclusion", ""))
+            if conclusion in ("success", "skipped"):
+                continue
+            lines.append(f"ERROR: step_failed name={name} conclusion={conclusion}")
+    return "\n".join(lines) + "\n"
+
+
 def auto_triage_failed_jobs(
     opts: MonitorOptions,
     summary: dict[str, str],
@@ -290,11 +308,16 @@ def auto_triage_failed_jobs(
                 f"job_id={job_id} name={job_name} path={log_path}"
             )
         except Exception as exc:
+            fallback = build_job_fallback_log(job, reason=str(exc))
+            log_path.write_text(fallback, encoding="utf-8")
             print(
-                "WARN: ci_auto_triage_log_fetch_failed "
+                "WARN: ci_auto_triage_log_fetch_failed_using_fallback "
                 f"job_id={job_id} name={job_name} reason={exc}"
             )
-            continue
+            print(
+                "METRIC: ci_auto_triage_job_log "
+                f"job_id={job_id} name={job_name} path={log_path}"
+            )
 
         rc, out, err = run_triage_script(opts.triage_script, log_path)
         print(

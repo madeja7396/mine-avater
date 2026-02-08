@@ -35,6 +35,8 @@ class GeneratorConfig:
 @dataclass(frozen=True)
 class PostprocessConfig:
     fps: int = 25
+    watermark_enabled: bool = True
+    watermark_label: str = "MINE-AVATER/RESEARCH-ONLY"
 
 
 @dataclass(frozen=True)

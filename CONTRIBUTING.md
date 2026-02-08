@@ -1,6 +1,7 @@
 # Contributing
 
 本プロジェクトは、`docs/project-policy.md` の方針に従ってエージェント並列開発を行います。
+利用時は `docs/research-use-policy.md` の研究用途制限を遵守してください。
 
 ## 1. 開発開始前
 
@@ -40,4 +41,3 @@ make test_full
 
 1. `python3 harness/task_lock.py release <task> <owner>` でロック解放。
 2. しきい値変更時は `specs/quality_thresholds.json` と `specs/quality.md` を同時更新。
-

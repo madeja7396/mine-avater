@@ -144,7 +144,11 @@ class ScaffoldPostprocessor(Postprocessor):
         self.config = config
 
     def describe(self) -> dict:
-        return {"fps": self.config.fps}
+        return {
+            "fps": self.config.fps,
+            "watermark_enabled": self.config.watermark_enabled,
+            "watermark_label": self.config.watermark_label,
+        }
 
     def run(
         self,
@@ -157,6 +161,8 @@ class ScaffoldPostprocessor(Postprocessor):
             frames_dir=artifacts.frames_dir,
             output_video=paths.output_video,
             fps=self.config.fps,
+            watermark_enabled=self.config.watermark_enabled,
+            watermark_label=self.config.watermark_label,
         )
         return PipelineOutput(output_video=paths.output_video)
 

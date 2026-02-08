@@ -70,6 +70,7 @@ class PipelineScaffoldTest(unittest.TestCase):
             self.assertTrue((workspace / "frames").is_dir())
             self.assertTrue((workspace / "output.mp4").is_file())
             self.assertTrue((workspace / "output.mp4.meta.json").is_file())
+            self.assertTrue((workspace / "output.mp4.watermark.json").is_file())
             self.assertTrue((workspace / "pipeline_run.json").is_file())
 
             frames = sorted((workspace / "frames").glob("*.png"))
@@ -86,6 +87,7 @@ class PipelineScaffoldTest(unittest.TestCase):
             self.assertIn("stages", payload)
             self.assertEqual(payload["stages"]["generator"]["backend_requested"], "heuristic")
             self.assertEqual(payload["stages"]["generator"]["backend_used"], "heuristic")
+            self.assertEqual(payload["stages"]["postprocessor"]["watermark_enabled"], True)
 
     def test_scaffold_pipeline_respects_frame_count_and_fps(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -145,6 +147,11 @@ class PipelineScaffoldTest(unittest.TestCase):
             manifest = json.loads((workspace / "pipeline_run.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["stages"]["generator"]["frame_count"], 6)
             self.assertEqual(manifest["stages"]["postprocessor"]["fps"], 15)
+            self.assertEqual(manifest["stages"]["postprocessor"]["watermark_enabled"], True)
+            self.assertEqual(
+                manifest["stages"]["postprocessor"]["watermark_label"],
+                "MINE-AVATER/RESEARCH-ONLY",
+            )
             self.assertEqual(manifest["stages"]["preprocessor"]["window_ms"], 20.0)
             self.assertEqual(manifest["stages"]["preprocessor"]["hop_ms"], 8.0)
             self.assertEqual(manifest["stages"]["generator"]["backend_requested"], "vit-mock")
@@ -161,6 +168,31 @@ class PipelineScaffoldTest(unittest.TestCase):
 
             meta = json.loads((workspace / "output.mp4.meta.json").read_text(encoding="utf-8"))
             self.assertEqual(meta["fps"], 15)
+            self.assertEqual(meta["watermark_enabled"], True)
+            self.assertTrue((workspace / "output.mp4.watermark.json").is_file())
+
+    def test_scaffold_pipeline_disables_watermark(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_audio = root / "input.wav"
+            reference_image = root / "face.png"
+            workspace = root / "workspace"
+            self.write_sine_wav(input_audio)
+            self.write_png(reference_image)
+
+            result = self.run_cmd(
+                "--input-audio",
+                str(input_audio),
+                "--reference-image",
+                str(reference_image),
+                "--workspace",
+                str(workspace),
+                "--disable-watermark",
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertFalse((workspace / "output.mp4.watermark.json").exists())
+            manifest = json.loads((workspace / "pipeline_run.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["stages"]["postprocessor"]["watermark_enabled"], False)
 
     def test_scaffold_pipeline_rejects_invalid_vit_3d_weight(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -184,6 +216,28 @@ class PipelineScaffoldTest(unittest.TestCase):
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("ERROR: invalid_vit_3d_conditioning_weight", result.stdout)
+
+    def test_scaffold_pipeline_rejects_empty_watermark_label(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_audio = root / "input.wav"
+            reference_image = root / "face.png"
+            workspace = root / "workspace"
+            self.write_sine_wav(input_audio)
+            self.write_png(reference_image)
+
+            result = self.run_cmd(
+                "--input-audio",
+                str(input_audio),
+                "--reference-image",
+                str(reference_image),
+                "--workspace",
+                str(workspace),
+                "--watermark-label",
+                "   ",
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("ERROR: invalid_watermark_label", result.stdout)
 
     def test_scaffold_pipeline_rejects_invalid_temporal_loss_weight(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
