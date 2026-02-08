@@ -83,6 +83,47 @@ class PipelineScaffoldTest(unittest.TestCase):
             self.assertIn("pipeline_input", payload)
             self.assertIn("intermediate_artifacts", payload)
             self.assertIn("pipeline_output", payload)
+            self.assertIn("stages", payload)
+
+    def test_scaffold_pipeline_respects_frame_count_and_fps(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_audio = root / "input.wav"
+            reference_image = root / "face.png"
+            workspace = root / "workspace"
+
+            self.write_sine_wav(input_audio)
+            self.write_png(reference_image)
+
+            result = self.run_cmd(
+                "--input-audio",
+                str(input_audio),
+                "--reference-image",
+                str(reference_image),
+                "--workspace",
+                str(workspace),
+                "--frame-count",
+                "6",
+                "--fps",
+                "15",
+                "--window-ms",
+                "20",
+                "--hop-ms",
+                "8",
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            frames = sorted((workspace / "frames").glob("*.png"))
+            self.assertEqual(len(frames), 6)
+
+            manifest = json.loads((workspace / "pipeline_run.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["stages"]["generator"]["frame_count"], 6)
+            self.assertEqual(manifest["stages"]["postprocessor"]["fps"], 15)
+            self.assertEqual(manifest["stages"]["preprocessor"]["window_ms"], 20.0)
+            self.assertEqual(manifest["stages"]["preprocessor"]["hop_ms"], 8.0)
+
+            meta = json.loads((workspace / "output.mp4.meta.json").read_text(encoding="utf-8"))
+            self.assertEqual(meta["fps"], 15)
 
 
 if __name__ == "__main__":

@@ -38,7 +38,11 @@ make test_all
 python3 pipeline/run_scaffold.py \
   --input-audio /path/to/input.wav \
   --reference-image /path/to/face.png \
-  --workspace /tmp/avatar-work
+  --workspace /tmp/avatar-work \
+  --frame-count 12 \
+  --fps 25 \
+  --window-ms 25 \
+  --hop-ms 10
 ```
 
 `ffmpeg` が使える環境では `output.mp4` を実動画として生成し、使えない環境ではプレースホルダ出力にフォールバックします。

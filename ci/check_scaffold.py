@@ -31,6 +31,8 @@ REQUIRED_FILES = [
     Path("ci/check_eval_assets.py"),
     Path("ci/check_project_skills.py"),
     Path("pipeline/contracts.py"),
+    Path("pipeline/config.py"),
+    Path("pipeline/engine.py"),
     Path("pipeline/preprocess.py"),
     Path("pipeline/generator.py"),
     Path("pipeline/postprocess.py"),

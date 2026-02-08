@@ -18,6 +18,8 @@ lint:
 		ci/check_project_skills.py \
 		pipeline/interfaces.py \
 		pipeline/contracts.py \
+		pipeline/config.py \
+		pipeline/engine.py \
 		pipeline/preprocess.py \
 		pipeline/generator.py \
 		pipeline/postprocess.py \
