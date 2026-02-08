@@ -1,0 +1,84 @@
+{
+  "thresholds": {
+    "lipsync_mae_max": 0.12,
+    "mouth_breakage_rate_max": 0.05,
+    "temporal_jump_max": 0.08,
+    "psnr_min": 30.0,
+    "ssim_min": 0.93,
+    "oom_rate_max": 0.01,
+    "failure_rate_max": 0.02,
+    "throughput_fps_min": 12.0
+  },
+  "aggregate": {
+    "oom_rate": 0.0,
+    "failure_rate": 0.0,
+    "throughput_fps": 18.4
+  },
+  "samples": [
+    {
+      "id": "full_001",
+      "lipsync_mae": 0.082,
+      "mouth_breakage_rate": 0.018,
+      "temporal_jump": 0.041,
+      "psnr": 31.2,
+      "ssim": 0.946
+    },
+    {
+      "id": "full_002",
+      "lipsync_mae": 0.085,
+      "mouth_breakage_rate": 0.021,
+      "temporal_jump": 0.039,
+      "psnr": 30.7,
+      "ssim": 0.941
+    },
+    {
+      "id": "full_003",
+      "lipsync_mae": 0.080,
+      "mouth_breakage_rate": 0.017,
+      "temporal_jump": 0.043,
+      "psnr": 31.0,
+      "ssim": 0.944
+    },
+    {
+      "id": "full_004",
+      "lipsync_mae": 0.087,
+      "mouth_breakage_rate": 0.023,
+      "temporal_jump": 0.045,
+      "psnr": 30.5,
+      "ssim": 0.939
+    },
+    {
+      "id": "full_005",
+      "lipsync_mae": 0.079,
+      "mouth_breakage_rate": 0.015,
+      "temporal_jump": 0.037,
+      "psnr": 31.4,
+      "ssim": 0.951
+    },
+    {
+      "id": "full_006",
+      "lipsync_mae": 0.089,
+      "mouth_breakage_rate": 0.024,
+      "temporal_jump": 0.047,
+      "psnr": 30.4,
+      "ssim": 0.937
+    },
+    {
+      "id": "full_007",
+      "lipsync_mae": 0.083,
+      "mouth_breakage_rate": 0.019,
+      "temporal_jump": 0.042,
+      "psnr": 30.9,
+      "ssim": 0.943
+    },
+    {
+      "id": "full_008",
+      "lipsync_mae": 0.081,
+      "mouth_breakage_rate": 0.018,
+      "temporal_jump": 0.044,
+      "psnr": 30.8,
+      "ssim": 0.942
+    }
+  ]
+}
+

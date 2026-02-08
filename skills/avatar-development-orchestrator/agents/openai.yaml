@@ -1,0 +1,4 @@
+interface:
+  display_name: "Avatar Development Orchestrator"
+  short_description: "Coordinate long-term avatar pipeline development workflows"
+  default_prompt: "Use this skill to run daily development loops with task locking, quality gates, and spec synchronization for this repository."

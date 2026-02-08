@@ -1,0 +1,11 @@
+{
+  "lipsync_mae_max": 0.12,
+  "mouth_breakage_rate_max": 0.05,
+  "temporal_jump_max": 0.08,
+  "psnr_min": 30.0,
+  "ssim_min": 0.93,
+  "oom_rate_max": 0.01,
+  "failure_rate_max": 0.02,
+  "throughput_fps_min": 12.0
+}
+

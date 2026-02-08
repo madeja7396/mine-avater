@@ -1,0 +1,4 @@
+interface:
+  display_name: "Avatar Spec Steward"
+  short_description: "Keep specs, thresholds, and interfaces aligned over time"
+  default_prompt: "Use this skill when changing architecture, metrics, or interfaces so specs, eval assets, and tests remain consistent."

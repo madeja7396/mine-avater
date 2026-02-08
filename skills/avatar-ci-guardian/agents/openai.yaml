@@ -1,0 +1,4 @@
+interface:
+  display_name: "Avatar CI Guardian"
+  short_description: "Triage CI failures and restore quality gates quickly"
+  default_prompt: "Use this skill to diagnose CI failures, map them to repo checks, and produce minimal corrective actions."
