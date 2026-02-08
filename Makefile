@@ -1,4 +1,4 @@
-.PHONY: lint check check_scaffold check_eval_assets check_project_skills test_fast test_full test_unit test_smoke test_all
+.PHONY: lint check check_scaffold check_eval_assets check_project_skills test_fast test_full test_unit test_smoke test_vit_smoke test_all
 
 test_fast:
 	python3 ci/eval_runner.py --mode fast
@@ -12,6 +12,9 @@ test_unit:
 test_smoke:
 	python3 ci/smoke_scaffold.py
 
+test_vit_smoke:
+	python3 ci/smoke_vit_mock.py
+
 lint:
 	python3 -m py_compile \
 		harness/task_lock.py \
@@ -20,6 +23,7 @@ lint:
 		ci/check_scaffold.py \
 		ci/check_project_skills.py \
 		ci/smoke_scaffold.py \
+		ci/smoke_vit_mock.py \
 		pipeline/interfaces.py \
 		pipeline/contracts.py \
 		pipeline/config.py \
@@ -43,4 +47,4 @@ check_project_skills:
 
 check: check_scaffold check_eval_assets check_project_skills
 
-test_all: lint check test_fast test_unit test_smoke test_full
+test_all: lint check test_fast test_unit test_smoke test_vit_smoke test_full

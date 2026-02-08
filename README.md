@@ -25,6 +25,7 @@ make lint
 make check
 make test_fast
 make test_smoke
+make test_vit_smoke
 make test_full
 make test_unit
 ```

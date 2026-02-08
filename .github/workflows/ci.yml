@@ -31,6 +31,8 @@ jobs:
         run: make test_fast
       - name: Run scaffold smoke test
         run: make test_smoke
+      - name: Run vit-mock smoke test
+        run: make test_vit_smoke
       - name: Run unit tests
         run: make test_unit
 
