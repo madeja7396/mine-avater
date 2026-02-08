@@ -34,6 +34,18 @@ cat /path/to/ci.log | python3 skills/avatar-ci-guardian/scripts/triage_ci_log.py
 
 Run the suggested gate locally and iterate.
 
+Monitor latest CI state:
+
+```bash
+python3 ci/monitor_ci.py --branch main --workflow CI --include-jobs
+```
+
+Watch until completion and fail on red:
+
+```bash
+python3 ci/monitor_ci.py --branch main --workflow CI --watch --until-complete --require-success
+```
+
 ## Failure Priorities
 
 1. Syntax/lint failures

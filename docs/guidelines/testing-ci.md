@@ -8,6 +8,8 @@
 - `test_smoke`: 実行配線スモーク（CLI経由で成果物生成を検証）
 - `test_vit_smoke`: `vit-mock` バックエンドの統合スモーク
 - `test_unit`: ユニット検証
+- `monitor_ci`: GitHub Actionsの最新実行状態を確認
+- `monitor_ci_watch`: CI完了まで監視し、失敗時にエラー終了
 - `test_full`: 収束フェーズ検証
 - `pipeline/run_scaffold.py`: 実装前の配線スモーク（ユニットで検証）
 

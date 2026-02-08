@@ -1,4 +1,4 @@
-.PHONY: lint check check_scaffold check_eval_assets check_project_skills test_fast test_full test_unit test_smoke test_vit_smoke test_all
+.PHONY: lint check check_scaffold check_eval_assets check_project_skills test_fast test_full test_unit test_smoke test_vit_smoke monitor_ci monitor_ci_watch test_all
 
 test_fast:
 	python3 ci/eval_runner.py --mode fast
@@ -15,6 +15,12 @@ test_smoke:
 test_vit_smoke:
 	python3 ci/smoke_vit_mock.py
 
+monitor_ci:
+	python3 ci/monitor_ci.py --branch main --workflow CI --include-jobs
+
+monitor_ci_watch:
+	python3 ci/monitor_ci.py --branch main --workflow CI --watch --until-complete --interval 60 --max-iterations 60 --require-success
+
 lint:
 	python3 -m py_compile \
 		harness/task_lock.py \
@@ -24,6 +30,7 @@ lint:
 		ci/check_project_skills.py \
 		ci/smoke_scaffold.py \
 		ci/smoke_vit_mock.py \
+		ci/monitor_ci.py \
 		pipeline/interfaces.py \
 		pipeline/contracts.py \
 		pipeline/config.py \
