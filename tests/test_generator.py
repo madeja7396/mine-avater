@@ -103,12 +103,14 @@ class GeneratorTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             reference_image = root / "face.png"
+            reference_side = root / "side.png"
             input_audio = root / "input.wav"
             audio_features = root / "audio_features.npy"
             mouth_landmarks = root / "mouth_landmarks.json"
             frames_dir = root / "frames"
 
             reference_image.write_bytes(TINY_PNG)
+            reference_side.write_bytes(TINY_PNG)
             self.write_sine_wav(input_audio)
             extract_audio_features(input_audio, audio_features)
             build_mouth_landmarks(reference_image, mouth_landmarks, frame_count=3)
@@ -120,6 +122,7 @@ class GeneratorTest(unittest.TestCase):
                 output_dir=frames_dir,
                 frame_count=3,
                 backend="vit-auto",
+                vit_reference_images=[reference_side],
                 vit_use_pretrained=False,
             )
 
@@ -129,6 +132,9 @@ class GeneratorTest(unittest.TestCase):
                 str(result["backend_used"]) in ("vit-hf", "vit-mock-fallback"),
                 msg=str(result["backend_used"]),
             )
+            details = result["vit_details"]
+            self.assertTrue(isinstance(details, dict))
+            self.assertEqual(details.get("reference_count"), 2.0)
 
 
 if __name__ == "__main__":

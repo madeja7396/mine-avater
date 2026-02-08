@@ -18,6 +18,19 @@ from pipeline.postprocess import finalize_output_video
 from pipeline.preprocess import build_mouth_landmarks, extract_audio_features
 
 
+def _list_reference_images(reference_dir: str | None, limit: int) -> list[Path]:
+    if not reference_dir:
+        return []
+    root = Path(reference_dir)
+    if not root.is_dir():
+        return []
+    allow = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
+    images = [p for p in sorted(root.iterdir()) if p.is_file() and p.suffix.lower() in allow]
+    if limit > 0:
+        images = images[:limit]
+    return images
+
+
 class ScaffoldPreprocessor(Preprocessor):
     def __init__(self, config: PreprocessConfig) -> None:
         self.config = config
@@ -56,12 +69,16 @@ class ScaffoldGenerator(Generator):
     def __init__(self, config: GeneratorConfig) -> None:
         self.config = config
         self._backend_used = "not-run"
+        self._reference_image_count = 1
 
     def describe(self) -> dict:
         return {
             "frame_count": self.config.frame_count,
             "backend_requested": self.config.backend,
             "backend_used": self._backend_used,
+            "vit_reference_dir": self.config.vit_reference_dir,
+            "vit_reference_limit": self.config.vit_reference_limit,
+            "vit_reference_count": self._reference_image_count,
             "vit_patch_size": self.config.vit_patch_size,
             "vit_image_size": self.config.vit_image_size,
             "vit_model_name": self.config.vit_model_name,
@@ -74,6 +91,10 @@ class ScaffoldGenerator(Generator):
         payload: PipelineInput,
         artifacts: IntermediateArtifacts,
     ) -> IntermediateArtifacts:
+        extra_images = _list_reference_images(
+            reference_dir=self.config.vit_reference_dir,
+            limit=self.config.vit_reference_limit,
+        )
         result = generate_frames_with_backend(
             reference_image=payload.reference_image,
             audio_features=artifacts.audio_features,
@@ -81,6 +102,7 @@ class ScaffoldGenerator(Generator):
             output_dir=artifacts.frames_dir,
             frame_count=self.config.frame_count,
             backend=self.config.backend,
+            vit_reference_images=extra_images,
             vit_patch_size=self.config.vit_patch_size,
             vit_image_size=self.config.vit_image_size,
             vit_fallback_mock=self.config.vit_fallback_mock,
@@ -89,6 +111,15 @@ class ScaffoldGenerator(Generator):
             vit_device=self.config.vit_device,
         )
         self._backend_used = str(result.get("backend_used", "unknown"))
+        details = result.get("vit_details")
+        if isinstance(details, dict):
+            count = details.get("reference_count")
+            if isinstance(count, (int, float)):
+                self._reference_image_count = int(count)
+            else:
+                self._reference_image_count = 1 + len(extra_images)
+        else:
+            self._reference_image_count = 1 + len(extra_images)
         return artifacts
 
 

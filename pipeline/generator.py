@@ -154,6 +154,7 @@ def generate_frames_with_backend(
     output_dir: Path,
     frame_count: int = 12,
     backend: str = "heuristic",
+    vit_reference_images: list[Path] | None = None,
     vit_patch_size: int = 16,
     vit_image_size: int = 224,
     vit_fallback_mock: bool = True,
@@ -184,6 +185,7 @@ def generate_frames_with_backend(
         model_name=vit_model_name,
         use_pretrained=vit_use_pretrained,
         device=vit_device,
+        reference_images=vit_reference_images,
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)

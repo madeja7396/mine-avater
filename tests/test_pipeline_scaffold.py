@@ -92,10 +92,14 @@ class PipelineScaffoldTest(unittest.TestCase):
             root = Path(tmp_dir)
             input_audio = root / "input.wav"
             reference_image = root / "face.png"
+            reference_dir = root / "refs"
             workspace = root / "workspace"
 
             self.write_sine_wav(input_audio)
             self.write_png(reference_image)
+            reference_dir.mkdir(parents=True, exist_ok=True)
+            self.write_png(reference_dir / "a.png")
+            self.write_png(reference_dir / "b.png")
 
             result = self.run_cmd(
                 "--input-audio",
@@ -114,6 +118,10 @@ class PipelineScaffoldTest(unittest.TestCase):
                 "8",
                 "--generator-backend",
                 "vit-mock",
+                "--vit-reference-dir",
+                str(reference_dir),
+                "--vit-reference-limit",
+                "1",
             )
 
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
@@ -127,6 +135,7 @@ class PipelineScaffoldTest(unittest.TestCase):
             self.assertEqual(manifest["stages"]["preprocessor"]["hop_ms"], 8.0)
             self.assertEqual(manifest["stages"]["generator"]["backend_requested"], "vit-mock")
             self.assertIn("vit-mock", manifest["stages"]["generator"]["backend_used"])
+            self.assertEqual(manifest["stages"]["generator"]["vit_reference_count"], 2)
 
             meta = json.loads((workspace / "output.mp4.meta.json").read_text(encoding="utf-8"))
             self.assertEqual(meta["fps"], 15)
@@ -156,6 +165,30 @@ class PipelineScaffoldTest(unittest.TestCase):
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("ERROR: invalid_vit_grid", result.stdout)
+
+    def test_scaffold_pipeline_rejects_missing_vit_reference_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_audio = root / "input.wav"
+            reference_image = root / "face.png"
+            workspace = root / "workspace"
+            self.write_sine_wav(input_audio)
+            self.write_png(reference_image)
+
+            result = self.run_cmd(
+                "--input-audio",
+                str(input_audio),
+                "--reference-image",
+                str(reference_image),
+                "--workspace",
+                str(workspace),
+                "--generator-backend",
+                "vit-mock",
+                "--vit-reference-dir",
+                str(root / "missing"),
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("ERROR: vit_reference_dir_not_found", result.stdout)
 
 
 if __name__ == "__main__":

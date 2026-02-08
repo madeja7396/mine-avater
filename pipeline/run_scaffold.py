@@ -28,6 +28,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--vit-patch-size", type=int, default=16)
     parser.add_argument("--vit-image-size", type=int, default=224)
+    parser.add_argument("--vit-reference-dir", default=None)
+    parser.add_argument("--vit-reference-limit", type=int, default=8)
     parser.add_argument("--no-vit-fallback-mock", action="store_true")
     parser.add_argument("--vit-model-name", default="google/vit-base-patch16-224")
     parser.add_argument("--vit-use-pretrained", action="store_true")
@@ -66,6 +68,12 @@ def main() -> int:
             f"vit_patch_size={args.vit_patch_size} vit_image_size={args.vit_image_size}"
         )
         return 1
+    if args.vit_reference_limit <= 0:
+        print(f"ERROR: invalid_vit_reference_limit value={args.vit_reference_limit}")
+        return 1
+    if args.vit_reference_dir is not None and not Path(args.vit_reference_dir).is_dir():
+        print(f"ERROR: vit_reference_dir_not_found path={args.vit_reference_dir}")
+        return 1
     if (
         args.generator_backend in ("vit-hf", "vit-auto")
         and args.vit_image_size % args.vit_patch_size != 0
@@ -86,6 +94,8 @@ def main() -> int:
         generator=GeneratorConfig(
             frame_count=args.frame_count,
             backend=args.generator_backend,
+            vit_reference_dir=args.vit_reference_dir,
+            vit_reference_limit=args.vit_reference_limit,
             vit_patch_size=args.vit_patch_size,
             vit_image_size=args.vit_image_size,
             vit_fallback_mock=not args.no_vit_fallback_mock,

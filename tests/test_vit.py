@@ -21,6 +21,23 @@ class VitTest(unittest.TestCase):
             result = compute_mock_vit_conditioning(image, width=128, height=128, patch_size=16)
             self.assertEqual(result.backend_used, "vit-mock")
             self.assertTrue(0.5 <= result.conditioning.mouth_gain <= 1.5)
+            self.assertEqual(result.details["reference_count"], 1.0)
+
+    def test_mock_vit_conditioning_multi_view(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            image = Path(tmp_dir) / "face.png"
+            side = Path(tmp_dir) / "side.png"
+            image.write_bytes(TINY_PNG)
+            side.write_bytes(TINY_PNG)
+            result = compute_mock_vit_conditioning(
+                image,
+                width=128,
+                height=128,
+                patch_size=16,
+                reference_images=[side],
+            )
+            self.assertEqual(result.backend_used, "vit-mock")
+            self.assertEqual(result.details["reference_count"], 2.0)
 
     def test_resolve_heuristic(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

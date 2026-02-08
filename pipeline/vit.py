@@ -32,14 +32,39 @@ def _rgb_to_unit_values(raw_rgb: bytes) -> list[float]:
     return [v / 255.0 for v in raw_rgb]
 
 
-def compute_mock_vit_conditioning(
+def _collect_reference_images(
     reference_image: Path,
+    reference_images: list[Path] | None,
+) -> list[Path]:
+    paths = [reference_image]
+    for p in reference_images or []:
+        if p not in paths:
+            paths.append(p)
+    return paths
+
+
+def _merge_conditionings(
+    rows: list[VitConditioning],
+) -> VitConditioning:
+    if not rows:
+        return VitConditioning(face_shift_x=0.0, face_shift_y=0.0, mouth_gain=1.0, tone_shift=0.0)
+    n = float(len(rows))
+    return VitConditioning(
+        face_shift_x=sum(v.face_shift_x for v in rows) / n,
+        face_shift_y=sum(v.face_shift_y for v in rows) / n,
+        mouth_gain=sum(v.mouth_gain for v in rows) / n,
+        tone_shift=sum(v.tone_shift for v in rows) / n,
+    )
+
+
+def _mock_single_conditioning(
+    image_path: Path,
     width: int,
     height: int,
     patch_size: int,
-) -> VitResult:
+) -> tuple[VitConditioning, dict[str, float]]:
     patch_size = max(1, patch_size)
-    rgb = load_rgb_image(reference_image, width=width, height=height)
+    rgb = load_rgb_image(image_path, width=width, height=height)
     unit = _rgb_to_unit_values(rgb)
     if not unit:
         unit = [0.0]
@@ -66,20 +91,46 @@ def compute_mock_vit_conditioning(
     mean_all = sum(patch_means) / max(1, len(patch_means))
     var_all = sum((v - mean_all) ** 2 for v in patch_means) / max(1, len(patch_means))
     spread = math.sqrt(var_all)
-
     conditioning = VitConditioning(
         face_shift_x=(mean_all - 0.5) * 0.08,
         face_shift_y=(spread - 0.25) * 0.10,
         mouth_gain=1.0 + (spread - 0.25) * 0.6,
         tone_shift=(sum(unit[:64]) / max(1.0, min(64.0, float(len(unit))))) - 0.5,
     )
+    return conditioning, {"token_count": float(len(patch_means)), "mean_all": mean_all, "spread": spread}
+
+
+def compute_mock_vit_conditioning(
+    reference_image: Path,
+    width: int,
+    height: int,
+    patch_size: int,
+    reference_images: list[Path] | None = None,
+) -> VitResult:
+    images = _collect_reference_images(reference_image, reference_images)
+    rows: list[VitConditioning] = []
+    meta_rows: list[dict[str, float]] = []
+    for image_path in images:
+        cond, meta = _mock_single_conditioning(
+            image_path=image_path,
+            width=width,
+            height=height,
+            patch_size=patch_size,
+        )
+        rows.append(cond)
+        meta_rows.append(meta)
+    conditioning = _merge_conditionings(rows)
+    token_count = sum(v["token_count"] for v in meta_rows) / max(1.0, float(len(meta_rows)))
+    mean_all = sum(v["mean_all"] for v in meta_rows) / max(1.0, float(len(meta_rows)))
+    spread = sum(v["spread"] for v in meta_rows) / max(1.0, float(len(meta_rows)))
     return VitResult(
         conditioning=conditioning,
         backend_used="vit-mock",
         details={
-            "token_count": float(len(patch_means)),
+            "token_count": token_count,
             "mean_all": mean_all,
             "spread": spread,
+            "reference_count": float(len(images)),
         },
     )
 
@@ -96,6 +147,7 @@ def compute_hf_vit_conditioning(
     model_name: str,
     use_pretrained: bool,
     device: str,
+    reference_images: list[Path] | None = None,
 ) -> VitResult:
     try:
         import torch
@@ -127,20 +179,23 @@ def compute_hf_vit_conditioning(
         )
         model = ViTModel(config)
 
-    rgb = load_rgb_image(reference_image, width=image_size, height=image_size)
-    data = _build_tensor_from_rgb(rgb)
-    pixel_values = torch.tensor(data, dtype=torch.float32).reshape(1, 3, image_size, image_size)
+    images = _collect_reference_images(reference_image, reference_images)
+    tensors: list[list[float]] = []
+    for image_path in images:
+        rgb = load_rgb_image(image_path, width=image_size, height=image_size)
+        tensors.append(_build_tensor_from_rgb(rgb))
+    pixel_values = torch.tensor(tensors, dtype=torch.float32).reshape(len(tensors), 3, image_size, image_size)
 
     model.eval()
     model.to(run_device)
     pixel_values = pixel_values.to(run_device)
     with torch.no_grad():
         output = model(pixel_values=pixel_values).last_hidden_state
-        pooled = output.mean(dim=1).squeeze(0)
-        cls_token = output[:, 0, :].squeeze(0)
-        mean_value = float(pooled.mean().item())
-        std_value = float(pooled.std().item())
-        cls_mean = float(cls_token.mean().item())
+        pooled_batch = output.mean(dim=1)
+        cls_batch = output[:, 0, :]
+        mean_value = float(pooled_batch.mean().item())
+        std_value = float(pooled_batch.std().item())
+        cls_mean = float(cls_batch.mean().item())
 
     conditioning = VitConditioning(
         face_shift_x=_clamp(cls_mean * 0.12, -0.1, 0.1),
@@ -159,6 +214,7 @@ def compute_hf_vit_conditioning(
             "patch_size": float(patch_size),
             "pretrained": "true" if use_pretrained else "false",
             "device": run_device,
+            "reference_count": float(len(images)),
         },
     )
 
@@ -174,6 +230,7 @@ def resolve_vit_conditioning(
     model_name: str,
     use_pretrained: bool,
     device: str,
+    reference_images: list[Path] | None = None,
 ) -> VitResult:
     if backend == "heuristic":
         return VitResult(
@@ -183,7 +240,13 @@ def resolve_vit_conditioning(
         )
 
     if backend == "vit-mock":
-        return compute_mock_vit_conditioning(reference_image, width, height, patch_size)
+        return compute_mock_vit_conditioning(
+            reference_image=reference_image,
+            width=width,
+            height=height,
+            patch_size=patch_size,
+            reference_images=reference_images,
+        )
 
     if backend in ("vit-hf", "vit-auto"):
         try:
@@ -194,11 +257,18 @@ def resolve_vit_conditioning(
                 model_name=model_name,
                 use_pretrained=use_pretrained,
                 device=device,
+                reference_images=reference_images,
             )
         except Exception as exc:
             if backend == "vit-hf" and not fallback_mock:
                 raise
-            mock = compute_mock_vit_conditioning(reference_image, width, height, patch_size)
+            mock = compute_mock_vit_conditioning(
+                reference_image=reference_image,
+                width=width,
+                height=height,
+                patch_size=patch_size,
+                reference_images=reference_images,
+            )
             return VitResult(
                 conditioning=mock.conditioning,
                 backend_used="vit-mock-fallback",
@@ -206,4 +276,3 @@ def resolve_vit_conditioning(
             )
 
     raise ValueError(f"Unknown generator backend: {backend}")
-

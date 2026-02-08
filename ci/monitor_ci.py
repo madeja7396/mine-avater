@@ -44,12 +44,22 @@ def load_token_from_env_file(path: str, key: str) -> str | None:
         return None
     for raw in p.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        if "=" not in line:
             continue
         k, v = line.split("=", 1)
         if k.strip() != key:
             continue
-        value = v.strip().strip('"').strip("'")
+        value = v.strip()
+        if value and value[0] in ("'", '"'):
+            quote = value[0]
+            if len(value) > 1 and value.endswith(quote):
+                value = value[1:-1]
+        else:
+            value = value.split(" #", 1)[0].strip()
         return value or None
     return None
 

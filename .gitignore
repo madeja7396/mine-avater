@@ -8,3 +8,4 @@ logs/*
 !logs/.gitkeep
 
 external/
+.env.lock

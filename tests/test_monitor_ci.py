@@ -102,6 +102,16 @@ class MonitorCITest(unittest.TestCase):
             token = load_token_from_env_file(str(p), "GITHUB_TOKEN")
             self.assertEqual(token, "abc123")
 
+    def test_load_token_from_env_file_export_and_comment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            p = Path(tmp_dir) / ".env.lock"
+            p.write_text(
+                "export GITHUB_TOKEN=abc123 # personal access token\n",
+                encoding="utf-8",
+            )
+            token = load_token_from_env_file(str(p), "GITHUB_TOKEN")
+            self.assertEqual(token, "abc123")
+
 
 if __name__ == "__main__":
     unittest.main()

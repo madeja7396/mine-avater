@@ -14,6 +14,8 @@ class PreprocessConfig:
 class GeneratorConfig:
     frame_count: int = 12
     backend: str = "heuristic"
+    vit_reference_dir: str | None = None
+    vit_reference_limit: int = 8
     vit_patch_size: int = 16
     vit_image_size: int = 224
     vit_fallback_mock: bool = True
